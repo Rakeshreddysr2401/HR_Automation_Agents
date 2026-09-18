@@ -1,0 +1,34 @@
+Emp ID,Employee Name,Official Email,Mail ID,DOB,Date of Joining,Dept,Designation,Reporting To,Mobile,Status,PAN No,Emp Type,Gender,Office,Remarks
+E1001,  Aarav  Sharma ,AARAV.SHARMA@NOVATECH.IN,aarav0@gmail.com,23-07-1990,15/03/2021,  ENGINEERING ,Senior Software Engineer,,+91 90000 10000,active ,ADGJM0000A,Permanent,M,Bengaluru,verified by HR ops
+E1002,Diya Patel,diya.patel@novatech.in,diya.patel@novatech.in,14-02-1995,02/11/2022,Engineering,Software Engineer,aarav.sharma@novatech.in,+91 90001 10007,Active,HKNQT0137L,Permanent,F,Bengaluru,
+E1003,Rohan Mehta,rohan.mehta@novatech.in,rohan2@gmail.com,30-09-1988,21/06/2020,Sales,Account Executive,siddharth.rao@novatech.in,+91 90002 10014,Active,ORUXA0274W,Permanent,M,Mumbai,
+E1004,Ananya Iyer,ananya.iyer@novatech.in,ananya.iyer@novatech.in,17-05-1987,05/04/2019,Human Resource,HR Business Partner,swati.kulthe@novatech.in,+91 90003 10021,Active,VYBEH0411H,Permanent,F,Hyderabad,verified by HR ops
+E1005,Vikram Nair,vikram.nair@novatech.in,vikram4@gmail.com,02-12-1992,18/08/2021,Finance,Financial Analyst,nikhil.agarwal@novatech.in,+91 90004 10028,Active,CFILO0548S,Permanent,M,Mumbai,
+E1006,Sneha Reddy,sneha.reddy@novatech.in,sneha.reddy@novatech.in,26-03-1991,09/01/2020,marketing,Marketing Manager,sana.qureshi@novatech.in,+91 90005 10035,Active,JMPSV0685D,Permanent,F,Hyderabad,
+E1007,  Arjun  Kulkarni ,arjun.kulkarni@novatech.in,arjun6@gmail.com,08-08-1985,14/07/2018,Engineering,Engineering Manager,,+91 90006 10042,Active,QTWZC0822O,Permanent,M,Pune,verified by HR ops
+E1008,Ishita Bose,ishita.bose@novatech.in,ishita.bose@novatech.in,19-11-1993,23/02/2022,  CUSTOMER SUCCESS ,Customer Success Manager,anjali.prasad@novatech.in,+91 90007 10049,Active,XADGJ0959Z,Permanent,F,Kolkata,
+E1009,Karthik Subramanian,KARTHIK.SUBRAMANIAN@NOVATECH.IN,karthik8@gmail.com,04-06-1984,30/05/2017,Engineering,Staff Engineer,,+91 90008 10056,Active,EHKNQ1096K,Permanent,M,Chennai,
+E1010,Meera Joshi,meera.joshi@novatech.in,meera.joshi@novatech.in,21-01-1997,11/09/2023,Operations,Operations Executive,rahul.chopra@novatech.in,+91 90009 10063,Active,ABCD1234XY,Permanent,F,Pune,verified by HR ops
+E1011,Siddharth Rao,siddharth.rao@novatech.in,siddharth10@gmail.com,13-04-1986,25/10/2019,sales,Regional Sales Manager,,+91 90010 10070,Active,SVYBE1370G,Permanent,M,Bengaluru,
+E1012,Priya Menon,priya.menon@novatech.in,priya.menon@novatech.in,29-08-1989,07/03/2021,Legal,Legal Counsel,gauri.deshmukh@novatech.in,+91 90011 10077,active ,ZCFIL1507R,Permanent,F,Mumbai,
+E1013,  Nikhil  Agarwal ,nikhil.agarwal@novatech.in,nikhil12@gmail.com,11-10-1986,16/12/2018,Finance,Finance Manager,,+91 90012 10084,Active,GJMPS1644C,Permanent,M,Delhi,verified by HR ops
+E1014,Tanvi Desai,tanvi.desai@novatech.in,tanvi.desai@novatech.in,24-02-1994,03/07/2022,Marketing,Content Strategist,sana.qureshi@novatech.in,+91 90013 10091,Active,NQTWZ1781N,Permanent,F,Bengaluru,
+E1015,Aditya Verma,aditya.verma@novatech.in,aditya14@gmail.com,07-07-1996,19/04/2023,Engg,Software Engineer,arjun.kulkarni@novatech.in,+91 90014 10098,Active,UXADG1918Y,Permanent,M,Pune,
+E1016,Kavya Krishnan,kavya.krishnan@novatech.in,kavya.krishnan@novatech.in,15-05-1995,28/01/2021,customer success,Support Specialist,anjali.prasad@novatech.in,+91 90015 10105,Active,BEHKN2055J,Permanent,F,Chennai,verified by HR ops
+E1017,Rahul Chopra,RAHUL.CHOPRA@NOVATECH.IN,rahul16@gmail.com,03-03-1988,22/08/2019,Operations,Operations Manager,,+91 90016 10112,Active,ILORU2192U,Permanent,M,Delhi,
+E1018,Neha Gupta,neha.gupta@novatech.in,neha.gupta@novatech.in,18-09-1990,06/06/2020,Human Resource,Talent Acquisition Lead,swati.kulthe@novatech.in,+91 90017 10119,Active,PSVYB2329F,Permanent,F,Hyderabad,
+E1019,  Manish  Pillai ,manish.pillai@novatech.in,manish18@gmail.com,27-12-1991,13/11/2021,Engineering,DevOps Engineer,arjun.kulkarni@novatech.in,+91 90018 10126,Active,WZCFI2466Q,Permanent,M,Bengaluru,verified by HR ops
+E1020,Shreya Banerjee,shreya.banerjee@novatech.in,shreya.banerjee@novatech.in,09-04-1996,01/02/2023,Engg,QA Engineer,arjun.kulkarni@novatech.in,+91 90019 10133,Active,DGJMP2603B,Permanent,F,Kolkata,
+E1021,Varun Malhotra,varun.malhotra@novatech.in,varun20@gmail.com,22-06-1998,17/05/2023,sales,Sales Development Rep,siddharth.rao@novatech.in,+91 90020 10140,Active,KNQTW2740M,Contract,M,Delhi,
+E1022,Pooja Shetty,pooja.shetty@novatech.in,pooja.shetty@novatech.in,05-11-1994,24/09/2022,  MARKETING ,Growth Marketer,sana.qureshi@novatech.in,+91 90021 10147,Active,RUXAD2877X,Permanent,F,Mumbai,verified by HR ops
+E1023,Akash Trivedi,akash.trivedi@novatech.in,akash22@gmail.com,16-01-1992,08/10/2020,Engineering,Data Engineer,arjun.kulkarni@novatech.in,+91 90022 10154,active ,YBEHK3014I,Permanent,M,Hyderabad,
+E1024,Ritu Saxena,ritu.saxena@novatech.in,ritu.saxena@novatech.in,28-07-1995,12/12/2022,Finance,Accounts Payable Analyst,nikhil.agarwal@novatech.in,+91 90023 10161,Active,FILOR3151T,Permanent,F,Delhi,
+E1025,  Sanjay  Kapoor ,SANJAY.KAPOOR@NOVATECH.IN,sanjay24@gmail.com,02-02-1983,20/07/2017,Operations,Facilities Lead,former.manager@novatech.in,+91 90024 10168,Active,MPSVY3288E,Permanent,M,Pune,verified by HR ops
+E1026,Divya Raman,divya.raman@novatech.in,divya.raman@novatech.in,12-10-2001,04/08/2024,customer success,Onboarding Specialist,anjali.prasad@novatech.in,+91 90025 10175,Active,TWZCF3425P,Intern,F,Chennai,
+E1027,Harsh Bhatia,harsh.bhatia@novatech.in,harsh26@gmail.com,20-05-1994,26/03/2022,Engineering,Frontend Engineer,arjun.kulkarni@novatech.in,+91 90026 10182,Active,ADGJM3562A,Permanent,M,Bengaluru,
+E1028,Lakshmi Venkatesh,lakshmi.venkatesh@novatech.in,lakshmi.venkatesh@novatech.in,06-09-1993,10/05/2021,Human Resource,HR Operations Executive,swati.kulthe@novatech.in,+91 90027 10189,Active,HKNQT3699L,Permanent,F,Chennai,verified by HR ops
+E1029,Imran Sheikh,imran.sheikh@novatech.in,imran28@gmail.com,01-01-1987,29/11/2018,  SALES ,Enterprise AE,gauri.deshmukh@novatech.in,+91 90028 10196,Active,ORUXA3836W,Permanent,M,Mumbai,
+E1030,Gauri Deshmukh,gauri.deshmukh@novatech.in,gauri.deshmukh@novatech.in,23-03-1996,15/06/2023,Legal,Compliance Analyst,imran.sheikh@novatech.in,+91 90029 10203,Active,VYBEH3973H,Permanent,F,Pune,
+E1004,Ananya Iyer,ananya.iyer@novatech.in,ananya.iyer@novatech.in,17-05-1987,05/04/2019,Human Resource,HR Business Partner,swati.kulthe@novatech.in,+91 90003 10021,Active,VYBEH0411H,Permanent,F,Hyderabad,verified by HR ops
+E1012,Priya Menon,priya.menon@novatech.in,priya.menon@novatech.in,29-08-1989,07/03/2021,Legal,Legal Counsel,gauri.deshmukh@novatech.in,+91 90011 10077,active ,ZCFIL1507R,Permanent,F,Mumbai,
+E0910,Rakesh Reddy,rakesh.reddy.2014@novatech.in,rakesh.reddy1982@gmail.com,14-08-1982,03/02/2014,Engineering,Senior Engineer,,+91 98200 11223,Inactive,CFILO4110S,Permanent,M,Hyderabad,resigned 2019

@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Runtime state (databases are rebuilt by running the app)
+*.db
+*.db-shm
+*.db-wal
+uploads/
+
+# Secrets and local config
+.env
+.env.local
+
+# Node / frontend
+node_modules/
+web/dist/
+.vite/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp

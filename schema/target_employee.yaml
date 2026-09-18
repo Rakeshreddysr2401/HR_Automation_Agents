@@ -1,0 +1,213 @@
+# Target schema for the destination HRMS "employee master" object.
+#
+# `description` is not decoration: it is the text the Schema Mapper embeds when
+# scoring a source column against this field. Vague descriptions produce vague
+# mappings, so each one names the real-world concept and its common aliases.
+
+entity: employee
+version: 1
+
+fields:
+  - name: employee_code
+    type: string
+    required: true
+    unique: true
+    identity: strong          # a strong identity key for duplicate detection
+    description: >-
+      Unique employee number or staff ID assigned by the employer. Also called
+      employee id, emp code, staff number, personnel number, associate id.
+    max_length: 20
+
+  - name: first_name
+    type: string
+    required: true
+    description: >-
+      Employee's given name or first name, excluding surname. Also called given
+      name, forename, fname.
+
+  - name: last_name
+    type: string
+    required: true
+    description: >-
+      Employee's surname, family name or last name. Also called surname, family
+      name, lname.
+
+  - name: work_email
+    type: string
+    format: email
+    required: true
+    unique: true
+    identity: strong
+    description: >-
+      Official company email address used for work. Also called office email,
+      corporate email, business email, official mail id.
+
+  - name: personal_email
+    type: string
+    format: email
+    required: false
+    description: >-
+      Employee's personal, non-company email address, typically a gmail or
+      yahoo address used for offer letters and post-exit contact. Also called
+      personal mail, private email, alternate email.
+
+  - name: phone
+    type: string
+    format: phone
+    required: false
+    description: >-
+      Employee's contact telephone number. Also called mobile, mobile number,
+      cell number, contact number, telephone.
+
+  - name: date_of_birth
+    type: date
+    required: true
+    description: >-
+      Employee's date of birth, used for age verification and statutory
+      compliance. Also called DOB or birth date.
+
+  - name: date_of_joining
+    type: date
+    required: true
+    description: >-
+      The date the employee joined the company and started employment. Also
+      called joining date, hire date, date of hire, start date, DOJ.
+
+  - name: date_of_exit
+    type: date
+    required: false
+    description: >-
+      The date the employee left the company, if applicable. Also called last
+      working day, exit date, termination date, relieving date.
+
+  - name: department
+    type: enum
+    required: true
+    description: >-
+      Business function or department the employee belongs to, such as
+      engineering, sales or finance. Also called function, division, business unit.
+    enum:
+      - Engineering
+      - Sales
+      - Marketing
+      - Human Resources
+      - Finance
+      - Operations
+      - Customer Success
+      - Legal
+
+  - name: designation
+    type: string
+    required: true
+    description: >-
+      Job title or role of the employee, such as Senior Software Engineer or
+      Account Manager. Also called title, job title, position, role.
+
+  - name: employment_type
+    type: enum
+    required: true
+    default: Permanent
+    description: >-
+      Nature of the employment contract, distinguishing permanent staff from
+      contractors, interns and consultants. Also called employee type,
+      worker type, engagement type.
+    enum:
+      - Permanent
+      - Contract
+      - Intern
+      - Consultant
+
+  - name: grade
+    type: string
+    required: false
+    description: >-
+      Internal compensation band, grade or level, such as L3, M2 or Band 4. Also
+      called band, level, pay grade, job level, grade band.
+
+  - name: location
+    type: string
+    required: false
+    description: >-
+      Office location or work city where the employee is based. Also called
+      work location, base location, office, city.
+
+  - name: gender
+    type: enum
+    required: false
+    description: >-
+      Employee's gender as recorded for statutory diversity reporting.
+    enum:
+      - Male
+      - Female
+      - Other
+      - Undisclosed
+
+  - name: manager_email
+    type: string
+    format: email
+    required: false
+    references: work_email    # referential integrity: must resolve within the dataset
+    description: >-
+      Work email address of the person this employee reports to. Also called
+      reporting manager, supervisor, line manager, reports to.
+
+  - name: pan
+    type: string
+    format: pan
+    required: false
+    pii: true
+    identity: strong          # PAN is nationally unique, so it identifies a person
+    description: >-
+      Indian Permanent Account Number, a ten character income tax identifier.
+      Also called PAN number, PAN card, income tax number.
+
+  - name: uan
+    type: string
+    format: uan
+    required: false
+    pii: true
+    description: >-
+      Universal Account Number, the twelve digit provident fund identifier. Also
+      called UAN number, PF number, provident fund number.
+
+  - name: bank_account
+    type: string
+    required: false
+    pii: true
+    description: >-
+      Salary bank account number used for payroll disbursement. Also called
+      account number, salary account, bank ac.
+
+  - name: ifsc
+    type: string
+    format: ifsc
+    required: false
+    description: >-
+      Indian Financial System Code identifying the employee's bank branch. Also
+      called IFSC code, branch code.
+
+  - name: status
+    type: enum
+    required: true
+    default: Active
+    description: >-
+      Whether the employee is currently employed. Also called employment status,
+      active flag, current status.
+    enum:
+      - Active
+      - Inactive
+
+# Business rules the Validator enforces beyond per-field type checks.
+business_rules:
+  - id: doj_after_dob
+    description: Date of joining must be later than date of birth.
+  - id: plausible_age
+    description: Age at joining must be between 15 and 75 years.
+  - id: exit_after_joining
+    description: Date of exit, when present, must be later than date of joining.
+  - id: manager_resolves
+    description: manager_email must match the work_email of another employee in the dataset.
+  - id: no_reporting_cycle
+    description: The reporting chain must not contain a cycle.
+  - id: inactive_needs_exit_date
+    description: An employee with status Inactive must have a date_of_exit.
