@@ -109,6 +109,12 @@ MANAGER = {
     3: 39, 17: 39, 27: 39,                               # HR
     11: 29,                                              # legal
     22: 6, 30: 6,
+    # DEFECT: reporting cycle. Vikram (idx 4) reports to Nikhil (idx 12) and
+    # Nikhil reports back to Vikram. Both sit below index 20, so they exist only
+    # in the legacy export - a cycle planted in someone who also appears in
+    # payroll would be silently broken when the two records merge and payroll's
+    # manager value wins.
+    12: 4,
 }
 
 
@@ -184,13 +190,6 @@ def build_legacy_csv() -> list[dict]:
     # DEFECT: exact duplicate rows (classic copy-paste in a spreadsheet) -> auto-merge
     rows.append(dict(rows[3]))
     rows.append(dict(rows[11]))
-
-    # DEFECT: reporting cycle - E1029 and E1030 report to each other
-    for r in rows:
-        if r["Emp ID"] == "E1029":
-            r["Reporting To"] = work_email(ROSTER[29][1], ROSTER[29][2])
-        if r["Emp ID"] == "E1030":
-            r["Reporting To"] = work_email(ROSTER[28][1], ROSTER[28][2])
 
     # DEFECT: an employee who left in 2019 and was rehired later (see payroll file).
     # Same human, same PAN, different employee code, non-overlapping tenure.

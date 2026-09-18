@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT = Path(__file__).resolve().parent.parent
+
+# LangChain ships tracing on by default and a stale key in the environment makes
+# every graph step log a 403. This is a local tool; opt out unless asked.
+os.environ.setdefault("LANGCHAIN_TRACING_V2", "false")
+os.environ.setdefault("LANGSMITH_TRACING", "false")
 
 
 class Settings(BaseSettings):

@@ -134,8 +134,10 @@ def clean(
     mappings: list[ColumnMapping],
     schema: TargetSchema,
     run_id: str,
+    decisions: dict[str, Any] | None = None,
     emit: Emit = lambda _: None,
 ) -> CleanResult:
+    decisions = decisions or {}
     result = CleanResult()
     index = _mapping_index(mappings)
     by_name = schema.by_name
@@ -153,6 +155,27 @@ def clean(
             plan = dates.analyse_column(values)
             key = f"{source_file}:{mapping.column}"
             result.date_plans[key] = plan
+
+            answered = decisions.get(f"date:{source_file}:{mapping.column}")
+            if answered in (dates.DMY, dates.MDY):
+                conventions[(source_file, mapping.column)] = answered
+                emit(
+                    f"'{mapping.column}' in {source_file} reads as "
+                    f"{dates.describe(answered)} - confirmed by a consultant"
+                )
+                result.audit.append(
+                    AuditEntry(
+                        run_id=run_id,
+                        actor=Actor.HUMAN,
+                        action="set_date_convention",
+                        entity=f"column:{source_file}:{mapping.column}",
+                        before="ambiguous",
+                        after=dates.describe(answered),
+                        disposition=Disposition.AUTO,
+                        rationale="Nothing in the column settled it, so a consultant did.",
+                    )
+                )
+                continue
 
             safe = policy.date_convention_is_safe(plan.anchors, plan.agreement)
             if plan.convention == dates.ISO or (plan.convention and safe):
@@ -197,6 +220,7 @@ def clean(
                 Escalation(
                     run_id=run_id,
                     type=EscalationType.DATE_CONVENTION,
+                    subject=f"date:{source_file}:{mapping.column}",
                     title=f"Is '{mapping.column}' day-first or month-first?",
                     question=(
                         f"Every date in '{mapping.column}' ({source_file}) has both parts at "
@@ -273,6 +297,10 @@ def clean(
                     continue
 
                 if target.type == "enum" and cleaned:
+                    answered = decisions.get(f"enum:{target.name}:{cleaned.lower()}")
+                    if answered:
+                        row[target.name] = "" if answered == "__blank__" else answered
+                        continue
                     canonical, score, disposition = canonicalise_enum(cleaned, target)
                     if canonical:
                         row[target.name] = canonical
@@ -368,6 +396,7 @@ def _enum_escalation(run_id: str, entry: dict[str, Any], target: TargetField) ->
     return Escalation(
         run_id=run_id,
         type=EscalationType.ENUM_VALUE,
+        subject=f"enum:{target.name}:{entry['raw'].lower()}",
         title=f"What does '{entry['raw']}' mean?",
         question=question,
         evidence={

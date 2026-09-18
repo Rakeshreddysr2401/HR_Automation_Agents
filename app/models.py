@@ -152,6 +152,14 @@ class Escalation:
     type: EscalationType
     title: str
     question: str
+    # A stable, semantic identifier for *what is being asked*, independent of
+    # this run. Escalation ids are regenerated whenever the pipeline re-runs;
+    # subjects are not, which is what lets a human answer survive a re-run and
+    # be carried into the next client's migration as remembered knowledge.
+    # Shapes: "contest:<file>:<field>", "map:<file>:<column>",
+    # "date:<file>:<column>", "enum:<field>:<value>", "identity:<a>|<b>",
+    # "record:<key>", "manager:<email>", "cycle:<a>|<b>", "batch:<run>".
+    subject: str = ""
     evidence: dict[str, Any] = field(default_factory=dict)
     options: list[dict[str, Any]] = field(default_factory=list)
     affected_records: list[str] = field(default_factory=list)
@@ -170,6 +178,7 @@ class Escalation:
             "id": self.id,
             "run_id": self.run_id,
             "type": self.type.value,
+            "subject": self.subject,
             "title": self.title,
             "question": self.question,
             "evidence": self.evidence,

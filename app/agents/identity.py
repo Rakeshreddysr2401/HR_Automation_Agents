@@ -63,8 +63,10 @@ def resolve(
     rows: list[dict[str, Any]],
     schema: TargetSchema,
     run_id: str,
+    decisions: dict[str, Any] | None = None,
     emit: Emit = lambda _: None,
 ) -> tuple[list[TargetRecord], list[Escalation], list[AuditEntry]]:
+    decisions = decisions or {}
     escalations: list[Escalation] = []
     audit: list[AuditEntry] = []
 
@@ -82,8 +84,9 @@ def resolve(
         record = _merge(members, key, run_id, audit, emit)
         records.append(record)
 
-    escalations.extend(_detect_shared_pan(records, run_id, emit))
-    escalations.extend(_detect_near_duplicates(records, run_id, emit))
+    escalations.extend(_detect_shared_pan(records, run_id, decisions, audit, emit))
+    escalations.extend(_detect_near_duplicates(records, run_id, decisions, audit, emit))
+    records = _apply_merges(records, decisions, run_id, audit)
 
     merged = sum(1 for record in records if len(record.sources) > 1)
     emit(
@@ -143,8 +146,68 @@ def _merge(
     return record
 
 
+def _pair_subject(prefix: str, a: str, b: str) -> str:
+    """Order-independent key, so the same pair is the same question either way."""
+    first, second = sorted([a, b])
+    return f"{prefix}:{first}|{second}"
+
+
+def _apply_merges(
+    records: list[TargetRecord],
+    decisions: dict[str, Any],
+    run_id: str,
+    audit: list[AuditEntry],
+) -> list[TargetRecord]:
+    """Carry out merges a consultant authorised, dropping the absorbed record."""
+    keep_targets: dict[str, str] = {}
+    for key, answer in decisions.items():
+        if not (key.startswith(("identity:", "rehire:")) and str(answer).startswith("merge:")):
+            continue
+        winner = str(answer).split(":", 1)[1]
+        _, pair = key.split(":", 1)
+        for member in pair.split("|"):
+            if member != winner:
+                keep_targets[member] = winner
+
+    if not keep_targets:
+        return records
+
+    by_key = {record.key: record for record in records}
+    survivors: list[TargetRecord] = []
+    for record in records:
+        winner_key = keep_targets.get(record.key)
+        if winner_key and winner_key in by_key:
+            winner = by_key[winner_key]
+            for column, value in record.fields.items():
+                if value and not winner.fields.get(column):
+                    winner.fields[column] = value
+            winner.sources.extend(record.sources)
+            audit.append(
+                AuditEntry(
+                    run_id=run_id,
+                    actor=Actor.HUMAN,
+                    action="merge_records",
+                    entity=winner.key,
+                    before=record.key,
+                    after=winner.key,
+                    disposition=Disposition.AUTO,
+                    rationale=(
+                        f"A consultant confirmed {record.key} and {winner.key} are the same "
+                        f"person. Merged, keeping values already present on {winner.key}."
+                    ),
+                )
+            )
+            continue
+        survivors.append(record)
+    return survivors
+
+
 def _detect_shared_pan(
-    records: list[TargetRecord], run_id: str, emit: Emit
+    records: list[TargetRecord],
+    run_id: str,
+    decisions: dict[str, Any],
+    audit: list[AuditEntry],
+    emit: Emit,
 ) -> list[Escalation]:
     """One PAN across two employee codes: a rehire, or a genuine duplicate."""
     by_pan: dict[str, list[TargetRecord]] = defaultdict(list)
@@ -160,11 +223,33 @@ def _detect_shared_pan(
             continue
         ordered = sorted(group, key=lambda r: _norm(r.fields.get("date_of_joining")))
         earlier, later = ordered[0], ordered[-1]
+        subject = _pair_subject("rehire", earlier.key, later.key)
+        answer = decisions.get(subject)
+        if answer:
+            audit.append(
+                AuditEntry(
+                    run_id=run_id,
+                    actor=Actor.HUMAN,
+                    action="resolve_rehire",
+                    entity=f"{earlier.key} + {later.key}",
+                    before="one PAN under two employee codes",
+                    after="kept separate" if answer == "separate" else str(answer),
+                    disposition=Disposition.AUTO,
+                    rationale=(
+                        "A consultant confirmed this is a rehire, so both spells of service "
+                        "are preserved."
+                        if answer == "separate"
+                        else "A consultant confirmed these are one record duplicated."
+                    ),
+                )
+            )
+            continue
         emit(f"Same PAN under two employee codes ({', '.join(sorted(codes))}) - asking")
         out.append(
             Escalation(
                 run_id=run_id,
                 type=EscalationType.REHIRE_SUSPECTED,
+                subject=subject,
                 title=f"Is {_name_of(later.fields).title()} a rehire or a duplicate?",
                 question=(
                     f"Two records share one PAN but carry different employee codes "
@@ -213,7 +298,11 @@ def _detect_shared_pan(
 
 
 def _detect_near_duplicates(
-    records: list[TargetRecord], run_id: str, emit: Emit
+    records: list[TargetRecord],
+    run_id: str,
+    decisions: dict[str, Any],
+    audit: list[AuditEntry],
+    emit: Emit,
 ) -> list[Escalation]:
     """Same birthday, same first name, surname that might be the same surname."""
     by_dob: dict[str, list[TargetRecord]] = defaultdict(list)
@@ -240,11 +329,28 @@ def _detect_near_duplicates(
                     or _abbreviates(left_last, right_last)
                 ):
                     continue
+                subject = _pair_subject("identity", left.key, right.key)
+                answer = decisions.get(subject)
+                if answer:
+                    audit.append(
+                        AuditEntry(
+                            run_id=run_id,
+                            actor=Actor.HUMAN,
+                            action="resolve_duplicate",
+                            entity=f"{left.key} + {right.key}",
+                            before="same birthday, same first name, similar surname",
+                            after="kept separate" if answer == "separate" else str(answer),
+                            disposition=Disposition.AUTO,
+                            rationale="A consultant adjudicated the suspected duplicate.",
+                        )
+                    )
+                    continue
                 emit(f"Possible duplicate: {left.key} and {right.key} - asking")
                 out.append(
                     Escalation(
                         run_id=run_id,
                         type=EscalationType.DUPLICATE_SUSPECTED,
+                        subject=subject,
                         title=f"Are these the same person? {_name_of(left.fields).title()}",
                         question=(
                             f"Both records share a date of birth and a first name, and the "

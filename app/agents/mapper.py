@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from typing import Callable
+from typing import Any, Callable
 
 from rapidfuzz import fuzz
 
@@ -221,9 +221,11 @@ def map_columns(
     schema: TargetSchema,
     run_id: str,
     memory: dict[str, str] | None = None,
+    decisions: dict[str, Any] | None = None,
     emit: Emit = lambda _: None,
 ) -> tuple[list[ColumnMapping], list[Escalation]]:
     memory = memory or {}
+    decisions = decisions or {}
     emit(f"Scoring {len(profiles)} source columns against {len(schema.fields)} target fields")
 
     field_vectors = {f.name: llm.embed(f.embed_text) for f in schema.fields}
@@ -239,7 +241,7 @@ def map_columns(
 
     for source_file, file_profiles in by_file.items():
         file_mappings, file_escalations = _map_one_file(
-            source_file, file_profiles, schema, field_vectors, run_id, memory, emit
+            source_file, file_profiles, schema, field_vectors, run_id, memory, decisions, emit
         )
         mappings.extend(file_mappings)
         escalations.extend(file_escalations)
@@ -258,6 +260,7 @@ def _map_one_file(
     field_vectors: dict[str, list[float]],
     run_id: str,
     memory: dict[str, str],
+    decisions: dict[str, Any],
     emit: Emit,
 ) -> tuple[list[ColumnMapping], list[Escalation]]:
     """Resolve one file's columns as an assignment, not as independent guesses.
@@ -279,6 +282,52 @@ def _map_one_file(
     escalations: list[Escalation] = []
     consumed: set[str] = set()
     resolved: set[str] = set()
+
+    # A human answer is an input to this pass, not a patch applied afterwards.
+    # Re-running the whole pipeline with the answer folded in is what keeps the
+    # result consistent: confirming which column is work_email does not just fill
+    # that field, it lets the identity resolver reconcile the two files against
+    # each other, which changes how records merge downstream.
+    for profile in profiles:
+        answer = decisions.get(f"map:{source_file}:{profile.column}")
+        if not answer or profile.column in resolved:
+            continue
+        if answer == "__ignore__":
+            mappings.append(
+                ColumnMapping(
+                    source_file=source_file,
+                    column=profile.column,
+                    target_field=None,
+                    disposition=Disposition.IGNORED,
+                    confidence=1.0,
+                    margin=1.0,
+                    rationale="A consultant marked this column as not for migration.",
+                    candidates=scored[profile.column][:4],
+                    provenance="human",
+                )
+            )
+            resolved.add(profile.column)
+            continue
+        if schema.field(answer):
+            splits = _looks_like_full_name(profile)
+            mappings.append(
+                ColumnMapping(
+                    source_file=source_file,
+                    column=profile.column,
+                    target_field=answer,
+                    disposition=Disposition.AUTO,
+                    confidence=1.0,
+                    margin=1.0,
+                    rationale=f"A consultant confirmed this column is {answer}.",
+                    candidates=scored[profile.column][:4],
+                    transform="split_full_name" if splits else None,
+                    provenance="human",
+                )
+            )
+            consumed.add(answer)
+            if splits:
+                consumed.update({"first_name", "last_name"})
+            resolved.add(profile.column)
 
     # Decisions a human already made outrank anything scoring can conclude.
     for profile in profiles:
@@ -371,6 +420,31 @@ def _map_one_file(
         rivals = _rivals_for(field_name, column, profiles, scored, resolved, score)
         if rivals:
             contenders = [column, *rivals]
+            winner = decisions.get(f"contest:{source_file}:{field_name}")
+            if winner in contenders:
+                for contender in contenders:
+                    if contender == winner:
+                        continue
+                    resolved.discard(contender)
+                mappings.append(
+                    ColumnMapping(
+                        source_file=source_file,
+                        column=winner,
+                        target_field=field_name,
+                        disposition=Disposition.AUTO,
+                        confidence=1.0,
+                        margin=1.0,
+                        rationale=(
+                            f"A consultant confirmed '{winner}' holds {field_name}, over "
+                            f"{', '.join(repr(c) for c in contenders if c != winner)}."
+                        ),
+                        candidates=scored[winner][:4],
+                        provenance="human",
+                    )
+                )
+                consumed.add(field_name)
+                resolved.add(winner)
+                continue
             emit(f"'{field_name}' is claimed by {len(contenders)} columns in {source_file} - asking")
             escalations.append(
                 _contest_escalation(run_id, source_file, field_name, contenders, scored, by_column)
@@ -458,6 +532,7 @@ def _map_one_file(
             Escalation(
                 run_id=run_id,
                 type=EscalationType.COLUMN_MAPPING,
+                subject=f"map:{source_file}:{profile.column}",
                 title=f"Which field is '{profile.column}'?",
                 question=f"Column '{profile.column}' in {source_file} {why}.",
                 evidence={
@@ -547,6 +622,7 @@ def _contest_escalation(
     return Escalation(
         run_id=run_id,
         type=EscalationType.COLUMN_MAPPING,
+        subject=f"contest:{source_file}:{field_name}",
         title=f"Which column is '{field_name}'?",
         question=(
             f"{' and '.join(repr(c) for c in ranked)} in {source_file} both look like "

@@ -32,33 +32,41 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 Result on the sample data: 35 columns → 34 mapped autonomously, 52 people
 reconciled, **5 escalations**, all of them genuine.
 
-## Phase 2 — Validation and integrity `[~]`
+## Phase 2 — Validation and integrity `[x]`
 
-- [ ] **Validator** — required fields, formats, enums, business rules; one
+- [x] **Validator** — required fields, formats, enums, business rules; one
       deterministic repair attempt, then escalate on the second failure.
-- [ ] Referential integrity — `manager_email` must resolve to an employee in the
-      dataset; orphan managers escalate.
-- [ ] Reporting-cycle detection — one escalation per cycle, listing its members.
-- [ ] Fields pending an unresolved mapping are marked *pending*, not *invalid*.
+- [x] Referential integrity — `manager_email` must resolve to an employee in the
+      dataset; orphan managers escalate, grouped by the missing manager rather than
+      by report, so one departed manager is one question.
+- [x] Reporting-cycle detection — one escalation per cycle, listing its members.
+- [x] Fields pending an unresolved mapping are marked *pending*, not *invalid*.
+- [x] **Supervisor** — links questions to the records they already cover, so the
+      validator never re-asks something the queue is holding in another shape.
 
-## Phase 3 — Orchestration `[ ]`
+## Phase 3 — Orchestration `[x]`
 
-- [ ] `MigrationState` and the LangGraph pipeline wiring the agents together.
-- [ ] Supervisor gate: aggregate the queue, apply the circuit breaker, `interrupt()`.
-- [ ] Resume with human decisions via `Command(resume=...)`, re-validate, continue.
-- [ ] SQLite persistence for runs, escalations, audit, records and mapping memory.
-- [ ] `SqliteSaver` checkpointing so a run survives a server restart mid-review.
+- [x] `pipeline.run(files, decisions)` as a **pure function** — human answers are
+      inputs re-run through the whole pipeline, not patches applied to its output.
+      This is what keeps downstream results consistent with an upstream answer.
+- [x] Stable escalation `subject` keys that survive a re-run, which is what lets an
+      answer be replayed and remembered.
+- [x] `MigrationState` and the LangGraph graph: analyse → gate → analyse, then push.
+- [x] Supervisor gate: aggregate the queue, apply the circuit breaker, `interrupt()`.
+- [x] Resume with human decisions via `Command(resume=...)`, re-analyse, continue.
+- [x] SQLite persistence for runs, escalations, audit, records and mapping memory.
+- [x] `AsyncSqliteSaver` checkpointing so a run survives a restart mid-review.
 
-## Phase 4 — Integration `[ ]`
+## Phase 4 — Integration `[~]`
 
-- [ ] Mock target API with deterministic failure injection and idempotency keys.
-- [ ] **Loader** — push per record, auto-retry 5xx with backoff, escalate 4xx.
-- [ ] Rollback via compensating deletes, recorded in the audit trail.
+- [x] Mock target API with deterministic failure injection and idempotency keys.
+- [x] **Loader** — push per record, auto-retry 5xx with backoff, escalate 4xx.
+- [x] Rollback via compensating deletes, requiring a reason, recorded in the audit.
 - [ ] Dry-run diff: exactly what will change, before anything is sent.
 
-## Phase 5 — Supervision UI `[ ]`
+## Phase 5 — Supervision UI `[~]`
 
-- [ ] FastAPI routes and an SSE stream of live agent activity.
+- [x] FastAPI routes and an SSE stream of live agent activity.
 - [ ] React + TypeScript + Vite app, built output served by FastAPI.
 - [ ] Run view — file drop, live timeline, counters for auto / flagged / escalated.
 - [ ] Escalation queue — a rich card per escalation type, each showing enough
