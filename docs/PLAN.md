@@ -67,14 +67,17 @@ reconciled, **5 escalations**, all of them genuine.
 ## Phase 5 — Supervision UI `[~]`
 
 - [x] FastAPI routes and an SSE stream of live agent activity.
-- [ ] React + TypeScript + Vite app, built output served by FastAPI.
-- [ ] Run view — file drop, live timeline, counters for auto / flagged / escalated.
-- [ ] Escalation queue — a rich card per escalation type, each showing enough
+- [x] React + TypeScript + Vite app, built output served by FastAPI.
+- [x] Run view — file drop, live timeline, counters for auto / flagged / escalated.
+- [x] Escalation queue — a rich card per escalation type, each showing enough
       evidence to decide at a glance; approve, correct inline, or reject.
-- [ ] Bulk resolution and keyboard triage, so one decision can settle forty rows.
-- [ ] Decisions view — everything the agent did alone, transparent but not blocking.
-- [ ] Push results with retry and rollback controls.
-- [ ] Audit trail — timestamp, actor, before → after, rationale. PII masked.
+- [x] Bulk resolution and keyboard triage (`j`/`k` to move, `1-9` to choose,
+      `u` to undo), so a queue is worked rather than clicked through.
+- [x] Decisions view — everything the agent did alone, transparent but not blocking,
+      plus what it has learned from previous answers.
+- [x] Push results with retry and rollback controls (rollback demands a reason).
+- [x] Audit trail — timestamp, actor, before → after, rationale. PII masked.
+- [ ] Visual check in a browser — not yet done, no browser tooling in this session.
 
 ## Phase 6 — The differentiators `[ ]`
 
