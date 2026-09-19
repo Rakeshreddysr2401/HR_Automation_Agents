@@ -79,26 +79,25 @@ reconciled, **5 escalations**, all of them genuine.
 - [x] Audit trail — timestamp, actor, before → after, rationale. PII masked.
 - [ ] Visual check in a browser — not yet done, no browser tooling in this session.
 
-## Phase 6 — The differentiators `[ ]`
+## Phase 6 — The differentiators `[~]`
 
-- [ ] **Mapping memory** — a human resolution becomes a reusable rule, so the same
-      column is never asked about twice. Turns review from a recurring cost into a
-      compounding asset, which is the whole point in an implementation practice.
 - [ ] **Migration recipe** — export the decision set as reviewable YAML, replayable
       against the next client's files.
 - [ ] **Circuit breaker** — when too much escalates, raise one batch-level question
       instead of flooding the queue.
-- [ ] **Threshold sweep** (`scripts/sweep_thresholds.py`) — measure what each
+- [x] **Threshold sweep** (`scripts/sweep_thresholds.py`) — measures what each
       threshold choice costs, so "why 0.82?" has an answer backed by numbers.
+- [x] **Mapping memory** — a human answer becomes a reusable rule; the second run of
+      the same files asks less, and `test_graph.py` asserts it.
 
-## Phase 7 — Delivery `[ ]`
+## Phase 7 — Delivery `[~]`
 
-- [ ] `pytest` suite: policy boundaries, a golden run asserting the exact escalation
-      set, interrupt/resume, retry/rollback, recipe round-trip.
+- [x] `pytest` suite — 70 tests: policy boundaries, a golden run asserting the exact
+      escalation set, interrupt/resume, retry/rollback, dates and PII.
 - [ ] Frontend tests for the SSE parser and escalation-card decisions.
-- [ ] `docs/WRITEUP.md` — one page: approach, where the line was drawn and why,
+- [x] `docs/WRITEUP.md` — one page: approach, where the line was drawn and why,
       what would come next.
-- [ ] `docs/DEMO.md` — a 90-second script that resolves an escalation end to end.
+- [x] `docs/DEMO.md` — a 90-second script that resolves an escalation end to end.
 - [ ] Dockerfile and compose for a one-command run.
 
 ---

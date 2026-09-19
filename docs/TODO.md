@@ -24,19 +24,17 @@ uvicorn app.main:app --reload     # then open http://localhost:8000
 
 Walk all five tabs, resolve one card of each type, and note anything that reads wrong.
 
-### 1.2 The one-page write-up `[ ]` — *explicitly graded*
-`docs/WRITEUP.md`, one page maximum. Three things, in this order:
-- the approach in a paragraph;
-- **how the line was drawn between acting and asking** — this is the question they
-  said they will press on, so it gets the most space;
-- what would come next.
+### 1.2 The one-page write-up `[x]` — *explicitly graded*
+Written: [`docs/WRITEUP.md`](WRITEUP.md), 795 words. Leads with the
+decision/execution split, spends the most space on where the line was drawn, and
+closes with two things stated honestly — that the thresholds are not what is keeping
+the sample correct (the assignment step is), and why a multi-agent chat framework was
+deliberately not used.
 
-Most of the raw material is already in `docs/ESCALATION-POLICY.md`; the work is
-compressing it to a page without losing the argument.
-
-### 1.3 Demo recording `[ ]` — *explicitly required*
-"The recording should show at least one escalation getting resolved through the UI."
-Ninety seconds is plenty. Script to write into `docs/DEMO.md`:
+### 1.3 Demo recording `[~]` — *explicitly required*
+Script written: [`docs/DEMO.md`](DEMO.md) — ninety seconds, with the wording to say
+at each beat and what to do if something misbehaves on camera. **Still to do: record
+it.** The beats are:
 
 1. Start the run; let the live log scroll — it narrates itself.
 2. Land on the queue: **ten questions out of thirty-five columns and fifty-two people.**
@@ -51,16 +49,20 @@ Ninety seconds is plenty. Script to write into `docs/DEMO.md`:
    instead of retrying forever.
 6. Finish on the audit trail, filtered to `human`.
 
-### 1.4 Tests `[ ]`
-`pytest` suite. The valuable ones, in order:
-- **golden run** — asserts the exact escalation set from the sample data. This is the
-  regression net for the whole policy; if a threshold drifts, it fails.
-- **policy boundaries** — each threshold branch in `app/policy.py`, both sides.
-- **date inference** — anchors present, anchors absent, conflicting anchors, ISO.
-- **interrupt/resume** — the graph stops, takes decisions, and drains.
-- **retry and rollback** — against the mock target's deterministic failures.
-- **PII** — no unmasked identifier ever reaches the audit trail (this one caught a
-  real bug already).
+### 1.4 Tests `[x]`
+**70 tests, 50s** (`.venv/bin/python -m pytest`). With no model server reachable:
+54 pass, 16 skip — the suite refuses to assert a weaker claim rather than passing
+quietly.
+
+- `test_golden_run.py` — the exact escalation set, the cascade one answer triggers,
+  the wrong-file circuit breaker, and the degraded no-model path.
+- `test_policy.py` — both sides of every threshold in `app/policy.py`.
+- `test_dates.py` — anchors present, absent, contradicting, ISO, two-digit years.
+- `test_graph.py` — the gate stops once for the whole queue, resumes, handles a
+  partial answer, and remembers.
+- `test_loader.py` — transient retried, business rejection escalated, idempotency
+  preventing a duplicate, rollback recording its reason.
+- `test_pii.py` — nothing unmasked reaches a model or the audit trail.
 
 ### 1.5 README polish `[~]`
 - [x] Quickstart verified against a fresh clone end to end: install, UI build, boot,
@@ -71,13 +73,15 @@ Ninety seconds is plenty. Script to write into `docs/DEMO.md`:
 
 ## 2. Worth doing if time allows
 
-### 2.1 Threshold sweep `[ ]`
-`scripts/sweep_thresholds.py` — re-run the sample migration across a range of
-`MAPPING_AUTO_MIN` and `MAPPING_MARGIN_MIN` values and print, for each, how many
-columns map automatically, how many escalate, and **how many map wrongly**.
+### 2.1 Threshold sweep `[x]`
+Built: `scripts/sweep_thresholds.py`, a 63-cell grid over confidence and margin.
 
-Turns "why 0.82?" from an opinion into a measurement, and it is the single best
-answer to the question they promised to ask. Roughly an hour.
+The result is more interesting than expected and is written up in the write-up: **no
+setting in the grid produces a wrong mapping**, including the most permissive. The
+thresholds are not what keeps this sample correct — the assignment step is, because
+columns compete for a target field and ambiguity resolves structurally. The tight
+defaults cost two extra questions here, which is the premium paid for inputs the
+sample does not represent.
 
 ### 2.2 Dry-run diff `[ ]`
 Show exactly what will change per record before anything is sent. Real migration

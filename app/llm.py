@@ -186,7 +186,14 @@ def ask_json(prompt: str, *, temperature: float = 0.0) -> dict | None:
             choices = resp.json().get("choices") or [{}]
             body = (choices[0].get("message") or {}).get("content", "")
     except Exception as exc:  # noqa: BLE001
+        # One failure marks the host unhealthy for the rest of the process rather
+        # than retrying per call. A remote model that is down or overloaded would
+        # otherwise cost one full timeout for every question in the queue, turning
+        # a degraded run into an apparently hung one. The deterministic path
+        # produces the same decisions either way - only the wording of the
+        # explanation is lost.
         log.warning("Reasoning model call failed (%s); using deterministic path", exc)
+        _health["reasoning"] = False
         return None
 
     if not body:
