@@ -62,9 +62,10 @@ Ninety seconds is plenty. Script to write into `docs/DEMO.md`:
 - **PII** — no unmasked identifier ever reaches the audit trail (this one caught a
   real bug already).
 
-### 1.5 README polish `[ ]`
-Add a screenshot of the queue once the UI is verified. Confirm the quickstart works
-from a clean clone — including `cd web && npm install && npm run build`.
+### 1.5 README polish `[~]`
+- [x] Quickstart verified against a fresh clone end to end: install, UI build, boot,
+      and a full run stopping at ten questions. Written up in `docs/RUNNING.md`.
+- [ ] Add a screenshot of the review queue, once the UI has been looked at.
 
 ---
 

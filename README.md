@@ -39,11 +39,19 @@ that keeps a consultant informed without asking them to approve every field.
 
 ```bash
 uv venv --python 3.11
-uv pip install -e ".[dev]"
+VIRTUAL_ENV="$PWD/.venv" uv pip install -e ".[dev]"
 
-python scripts/make_sample_data.py     # generate the messy source files
-uvicorn app.main:app --reload          # then open http://localhost:8000
+cd web && npm install && npm run build && cd ..   # the API serves the built UI
+.venv/bin/uvicorn app.main:app --port 8000        # then open http://localhost:8000
 ```
+
+Press *Run the sample migration*. The agent reads both bundled exports and stops
+with **ten questions** out of 35 source columns and 52 people — everything else it
+settles on its own.
+
+Full instructions, model configuration and troubleshooting:
+**[docs/RUNNING.md](docs/RUNNING.md)**. What is still outstanding:
+**[docs/TODO.md](docs/TODO.md)**.
 
 Models are optional. With a local Ollama or llama.cpp server reachable the agent
 uses embeddings to score column mappings; with nothing reachable it falls back to
