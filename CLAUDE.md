@@ -1,7 +1,8 @@
 # CLAUDE.md — working notes for this repo
 
 Read `docs/ARCHITECTURE.md` and `docs/ESCALATION-POLICY.md` before changing agent
-behaviour. `docs/PLAN.md` tracks what is built and what is next.
+behaviour. `docs/CAPABILITIES.md` describes what the system does and how a run works;
+`docs/PLAN.md` and `docs/TODO.md` track what is built and what is next.
 
 ## What this is
 

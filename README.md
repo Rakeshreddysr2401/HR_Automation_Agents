@@ -49,9 +49,9 @@ Press *Run the sample migration*. The agent reads both bundled exports and stops
 with **ten questions** out of 35 source columns and 52 people — everything else it
 settles on its own.
 
-Full instructions, model configuration and troubleshooting:
-**[docs/RUNNING.md](docs/RUNNING.md)**. What is still outstanding:
-**[docs/TODO.md](docs/TODO.md)**.
+**[docs/CAPABILITIES.md](docs/CAPABILITIES.md)** — what it can do and how a run
+works, end to end. **[docs/RUNNING.md](docs/RUNNING.md)** — setup, models,
+troubleshooting. **[docs/TODO.md](docs/TODO.md)** — what is still outstanding.
 
 Models are optional. With a local Ollama or llama.cpp server reachable the agent
 uses embeddings to score column mappings; with nothing reachable it falls back to
