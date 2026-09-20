@@ -131,3 +131,64 @@ class TestRollback:
     def test_it_ignores_records_that_never_landed(self, client, seeded_store):
         seeded_store.replace_records("run1", [TargetRecord(key="E9", fields={"employee_code": "E9"})])
         assert loader.rollback("run1", ["E9"], "never pushed", client=client)["count"] == 0
+
+    def test_already_gone_counts_as_rolled_back(self, client, seeded_store, target):
+        """A compensating delete is idempotent: if the target no longer holds the
+        record (say the mock target restarted), the rollback's goal is already met
+        and the store must say so rather than leaving the record marked loaded."""
+        seeded_store.replace_records("run1", [TargetRecord(key="E1", fields={"employee_code": "E1"})])
+        seeded_store.update_push_status("run1", "E1", "success", "TGT-1")
+        assert "E1" not in target.employees
+
+        outcome = loader.rollback("run1", ["E1"], "wrong entity", client=client)
+
+        assert outcome["count"] == 1 and outcome["failed"] == []
+        assert seeded_store.list_records("run1")[0]["push_status"] == "rolled_back"
+
+    def test_a_rolled_back_record_can_be_pushed_again_on_request(self, client, seeded_store, target):
+        seeded_store.replace_records("run1", [TargetRecord(key="E1", fields={"employee_code": "E1"})])
+        loader.push_records("run1", [record("E1")], client=client)
+        loader.rollback("run1", ["E1"], "mistake", client=client)
+        assert "E1" not in target.employees
+
+        outcome = loader.push_records("run1", [record("E1")], client=client)
+
+        assert outcome["pushed"] == 1, "the delete released the idempotency key"
+        assert "E1" in target.employees
+
+
+class TestRejectionFlood:
+    """Forty identical rejections are one question about the batch."""
+
+    def _seed(self, store, target, n):
+        recs = [record(f"E{i:04d}") for i in range(1, n + 1)]
+        store.replace_records("run1", [TargetRecord(key=r["key"], fields=r["fields"]) for r in recs])
+        # The target already holds every one of them - a re-run.
+        for r in recs:
+            target.create({"employee_code": r["key"], "first_name": "Test"})
+        return recs
+
+    def test_it_asks_once_not_once_per_record(self, client, seeded_store, target):
+        recs = self._seed(seeded_store, target, 10)
+
+        outcome = loader.push_records("run1", recs, client=client)
+
+        assert outcome["push_rejected"] == 10
+        open_ = seeded_store.list_escalations("run1", status="open")
+        assert len(open_) == 1
+        assert open_[0]["type"] == "batch_anomaly"
+        assert open_[0]["subject"] == "batch:push_rejected"
+        assert set(open_[0]["affected_records"]) == {r["key"] for r in recs}
+
+    def test_a_few_rejections_stay_individual(self, client, seeded_store, target):
+        """Below the flood threshold, per-record cards are the useful shape."""
+        recs = self._seed(seeded_store, target, 3)
+        outcome = loader.push_records("run1", recs, client=client)
+        assert outcome["push_rejected"] == 3
+        assert {e["type"] for e in seeded_store.list_escalations("run1", status="open")} == {"push_rejected"}
+
+    def test_choosing_review_expands_it_again(self, client, seeded_store, target):
+        recs = self._seed(seeded_store, target, 10)
+        loader.push_records("run1", recs, client=client, decisions={"batch:push_rejected": "review"})
+        open_ = seeded_store.list_escalations("run1", status="open")
+        assert len(open_) == 10 and all(e["type"] == "push_rejected" for e in open_)

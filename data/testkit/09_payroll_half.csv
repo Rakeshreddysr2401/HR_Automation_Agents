@@ -1,0 +1,13 @@
+emp_id,first_name,surname,work_mail,joining_dt,pan_number,uan_no,ctc_annual,worker_category,employment_state
+T1006,Karan,Reddy,karan.reddy@novatech.in,19/07/2021,ABCDE2006F,100000001006,1800000,FTE,A
+T1007,Priya,Gupta,priya.gupta@novatech.in,20/08/2022,ABCDE2007F,100000001007,1800000,FTE,A
+T1008,Arjun,Rao,arjun.rao@novatech.in,21/09/2015,ABCDE2008F,100000001008,1800000,FTE,A
+T1009,Sneha,Kapoor,sneha.kapoor@novatech.in,22/01/2016,ABCDE2009F,100000001009,1800000,FTE,A
+T1010,Rahul,Desai,rahul.desai@novatech.in,23/02/2017,ABCDE2010F,100000001010,1800000,FTE,A
+T1011,Nisha,Bose,nisha.bose@novatech.in,24/03/2018,ABCDE2011F,100000001011,1800000,FTE,A
+T1012,Sameer,Khanna,sameer.khanna@novatech.in,25/04/2019,ABCDE2012F,100000001012,1800000,FTE,A
+T1013,Tara,Malhotra,tara.malhotra@novatech.in,26/05/2020,ABCDE2013F,100000001013,1800000,FTE,A
+T1014,Dev,Shetty,dev.shetty@novatech.in,27/06/2021,ABCDE2014F,100000001014,1800000,FTE,A
+T1015,Ishita,Trivedi,ishita.trivedi@novatech.in,13/07/2022,ABCDE2015F,100000001015,1800000,FTE,A
+T1016,Kabir,Chopra,kabir.chopra@novatech.in,14/08/2015,ABCDE2016F,100000001016,1800000,FTE,A
+T1017,Riya,Banerjee,riya.banerjee@novatech.in,15/09/2016,ABCDE2017F,100000001017,1800000,FTE,A

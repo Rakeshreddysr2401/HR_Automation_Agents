@@ -1,0 +1,13 @@
+employee_code,first_name,last_name,work_email,personal_email,phone,date_of_birth,date_of_joining,department,designation,employment_type,gender,status,manager_email
+T1000,Aarav,Sharma,aarav.sharma@novatech.in,aarav0@gmail.com,+919820000000,1985-01-10,2015-01-13,Engineering,Engineer,Permanent,Male,Active,aarav.sharma@novatech.in
+T1001,Diya,Patel,diya.patel@novatech.in,diya1@gmail.com,+919820000037,1986-02-11,2016-02-14,Sales,Analyst,Permanent,Female,Active,aarav.sharma@novatech.in
+T1002,Rohan,Mehta,rohan.mehta@novatech.in,rohan2@gmail.com,+919820000074,1987-03-12,2017-03-15,Marketing,Manager,Permanent,Male,Active,aarav.sharma@novatech.in
+T1003,Ananya,Iyer,ananya.iyer@novatech.in,ananya3@gmail.com,+919820000111,1988-04-13,2018-04-16,Finance,Lead,Permanent,Female,Active,aarav.sharma@novatech.in
+T1004,Vikram,Nair,vikram.nair@novatech.in,vikram4@gmail.com,+919820000148,1989-05-14,2019-05-17,Operations,Engineer,Permanent,Male,Active,aarav.sharma@novatech.in
+T1005,Meera,Joshi,meera.joshi@novatech.in,meera5@gmail.com,+919820000185,1990-06-15,2020-06-18,Engineering,Analyst,Permanent,Female,Active,aarav.sharma@novatech.in
+T1006,Karan,Reddy,karan.reddy@novatech.in,karan6@gmail.com,+919820000222,1991-07-16,2021-07-19,Sales,Manager,Permanent,Male,Active,departed.manager@novatech.in
+T1007,Priya,Gupta,priya.gupta@novatech.in,priya7@gmail.com,+919820000259,1992-08-17,2022-08-20,Marketing,Lead,Permanent,Female,Active,departed.manager@novatech.in
+T1008,Arjun,Rao,arjun.rao@novatech.in,arjun8@gmail.com,+919820000296,1993-09-18,2015-09-21,Finance,Engineer,Permanent,Male,Active,departed.manager@novatech.in
+T1009,Sneha,Kapoor,sneha.kapoor@novatech.in,sneha9@gmail.com,+919820000333,1994-01-10,2016-01-22,Operations,Analyst,Permanent,Female,Active,
+T1010,Rahul,Desai,rahul.desai@novatech.in,rahul10@gmail.com,+919820000370,1995-02-11,2017-02-23,Engineering,Manager,Permanent,Male,Active,nisha.bose@novatech.in
+T1011,Nisha,Bose,nisha.bose@novatech.in,nisha11@gmail.com,+919820000407,1996-03-12,2018-03-24,Sales,Lead,Permanent,Female,Active,rahul.desai@novatech.in

@@ -1,0 +1,3 @@
+employee_code,first_name,last_name,work_email,personal_email,phone,date_of_birth,date_of_joining,date_of_exit,department,designation,employment_type,grade,location,gender,manager_email,pan,uan,bank_account,ifsc,status
+REQUIRED,REQUIRED,REQUIRED,REQUIRED,,,REQUIRED,REQUIRED,,REQUIRED,REQUIRED,REQUIRED,,,one of: Male|Female|Other|Undisclosed,,,,,,REQUIRED
+E1001,Aarav,Sharma,aarav.sharma@company.com,aarav@gmail.com,+919820011122,1990-04-17,2019-06-03,,Engineering,Senior Engineer,Permanent,L4,Bengaluru,Male,priya.rao@company.com,ABCDE1234F,100000158380,50100123456789,HDFC0001234,Active

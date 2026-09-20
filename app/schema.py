@@ -21,6 +21,7 @@ FORMATS: dict[str, re.Pattern[str]] = {
     "pan": re.compile(r"^[A-Z]{5}[0-9]{4}[A-Z]$"),
     "uan": re.compile(r"^\d{12}$"),
     "ifsc": re.compile(r"^[A-Z]{4}0[A-Z0-9]{6}$"),
+    "bank_account": re.compile(r"^\d{9,18}$"),
 }
 
 FORMAT_HELP: dict[str, str] = {
@@ -29,6 +30,7 @@ FORMAT_HELP: dict[str, str] = {
     "pan": "five letters, four digits, one letter (ABCDE1234F)",
     "uan": "exactly twelve digits",
     "ifsc": "four letters, a zero, then six characters (HDFC0001234)",
+    "bank_account": "9 to 18 digits",
 }
 
 

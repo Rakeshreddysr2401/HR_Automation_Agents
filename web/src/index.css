@@ -1,75 +1,50 @@
 @import "tailwindcss";
+@import "./styles/tokens.css";
+@import "./styles/base.css";
 
-/* A console for someone doing this work all day: dense, calm, and consistent
-   about what colour means. Amber always means "the agent inferred this";
-   rose always means "this is blocked on you". Nothing is coloured decoratively. */
-@theme {
-  --color-canvas: oklch(0.985 0.002 250);
-  --color-surface: oklch(1 0 0);
-  --color-raised: oklch(0.975 0.004 250);
-  --color-line: oklch(0.91 0.006 250);
-  --color-ink: oklch(0.25 0.015 250);
-  --color-muted: oklch(0.52 0.012 250);
-  --color-faint: oklch(0.66 0.01 250);
+/* Bridge the token layer into Tailwind's colour namespace.
+ *
+ * Each value is a `var()` pointing at a token, not a literal. Tailwind compiles
+ * `bg-surface` to `background-color: var(--color-surface)`, which resolves
+ * through to `--s-surface` at paint time — so `[data-theme="dark"]` on <html>
+ * restyles every utility in the app with no second stylesheet and no rebuild.
+ *
+ * Opacity modifiers still work: Tailwind v4 wraps these in `color-mix()`,
+ * which takes a runtime `var()` fine. So `border-ask/30` behaves as expected.
+ */
+@theme inline {
+  --color-canvas:    var(--s-canvas);
+  --color-surface:   var(--s-surface);
+  --color-raised:    var(--s-raised);
+  --color-sunken:    var(--s-sunken);
+  --color-line:      var(--s-line);
+  --color-line-soft: var(--s-line-soft);
 
-  --color-brand: oklch(0.55 0.17 262);
-  --color-brand-soft: oklch(0.95 0.03 262);
+  --color-ink:   var(--s-ink);
+  --color-muted: var(--s-muted);
+  --color-faint: var(--s-faint);
 
-  --color-auto: oklch(0.58 0.13 162);
-  --color-auto-soft: oklch(0.95 0.04 162);
-  --color-flag: oklch(0.65 0.14 75);
-  --color-flag-soft: oklch(0.96 0.05 85);
-  --color-ask: oklch(0.58 0.19 18);
-  --color-ask-soft: oklch(0.96 0.03 18);
-}
+  --color-brand:      var(--s-brand);
+  --color-brand-ink:  var(--s-brand-ink);
+  --color-brand-soft: var(--s-brand-soft);
+  --color-on-brand:   var(--s-on-brand);
 
-@media (prefers-color-scheme: dark) {
-  @theme {
-    --color-canvas: oklch(0.17 0.012 255);
-    --color-surface: oklch(0.21 0.014 255);
-    --color-raised: oklch(0.25 0.016 255);
-    --color-line: oklch(0.32 0.018 255);
-    --color-ink: oklch(0.95 0.005 255);
-    --color-muted: oklch(0.72 0.012 255);
-    --color-faint: oklch(0.58 0.012 255);
+  --color-auto:      var(--s-auto);
+  --color-auto-soft: var(--s-auto-soft);
+  --color-flag:      var(--s-flag);
+  --color-flag-soft: var(--s-flag-soft);
+  --color-ask:       var(--s-ask);
+  --color-ask-soft:  var(--s-ask-soft);
 
-    --color-brand: oklch(0.7 0.15 262);
-    --color-brand-soft: oklch(0.3 0.06 262);
-    --color-auto: oklch(0.72 0.13 162);
-    --color-auto-soft: oklch(0.29 0.05 162);
-    --color-flag: oklch(0.78 0.13 80);
-    --color-flag-soft: oklch(0.31 0.05 80);
-    --color-ask: oklch(0.7 0.16 18);
-    --color-ask-soft: oklch(0.31 0.06 18);
-  }
-}
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
 
-html, body, #root { height: 100%; }
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
 
-body {
-  margin: 0;
-  background: var(--color-canvas);
-  color: var(--color-ink);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  font-size: 14px;
-  -webkit-font-smoothing: antialiased;
-}
-
-.mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace; }
-
-::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb { background: var(--color-line); border-radius: 5px; }
-::-webkit-scrollbar-track { background: transparent; }
-
-@keyframes slide-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-.animate-in { animation: slide-in 0.18s ease-out; }
-
-kbd {
-  font-family: ui-monospace, monospace;
-  font-size: 10px;
-  padding: 1px 5px;
-  border-radius: 4px;
-  border: 1px solid var(--color-line);
-  background: var(--color-raised);
-  color: var(--color-muted);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
 }

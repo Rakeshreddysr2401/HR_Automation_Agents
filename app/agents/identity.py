@@ -70,22 +70,35 @@ def resolve(
     escalations: list[Escalation] = []
     audit: list[AuditEntry] = []
 
-    # Group on identifiers that are unique by construction. Work email is issued
-    # once per person per system; PAN is issued once per person nationally.
-    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for row in rows:
-        email = _norm(row.get("work_email"))
-        code = _norm(row.get("employee_code"))
-        key = f"email:{email}" if email else (f"code:{code}" if code else f"row:{row['_source']}")
-        groups[key].append(row)
+    # Group on identifiers that are unique by construction: the schema's
+    # `identity: strong` fields. Work email is issued once per person per
+    # system; PAN once per person nationally; the employee code once per person
+    # per HRIS.
+    #
+    # Rows are joined transitively across *any* shared strong identifier rather
+    # than on one preferred key each. That distinction is the whole multi-file
+    # case: a legacy export keyed by email and a payroll export keyed by
+    # employee code describe the same people, and picking one identifier per row
+    # puts them in different groups where they can never meet. Preferring email
+    # did exactly that - two files, zero merges, every person duplicated.
+    groups, keys_used = _group_by_shared_identifiers(rows, schema)
 
     records: list[TargetRecord] = []
-    for key, members in groups.items():
-        record = _merge(members, key, run_id, audit, emit)
+    for members, matched_on in zip(groups, keys_used):
+        record = _merge(members, matched_on, run_id, audit, emit)
         records.append(record)
 
     escalations.extend(_detect_shared_pan(records, run_id, decisions, audit, emit))
-    escalations.extend(_detect_near_duplicates(records, run_id, decisions, audit, emit))
+    # The per-pair narration is held back until it is known whether the pairs
+    # are one question or many - 275 "possible duplicate" lines followed by
+    # "asking once" would be the log version of the flood.
+    held: list[str] = []
+    near = _detect_near_duplicates(records, run_id, decisions, audit, held.append)
+    near, decisions = _collapse_cross_file_flood(near, records, run_id, decisions, audit, emit)
+    if any(e.type is EscalationType.DUPLICATE_SUSPECTED for e in near):
+        for line in held:
+            emit(line)
+    escalations.extend(near)
     records = _apply_merges(records, decisions, run_id, audit)
 
     merged = sum(1 for record in records if len(record.sources) > 1)
@@ -94,6 +107,88 @@ def resolve(
         f"({merged} merged from multiple sources)"
     )
     return records, escalations, audit
+
+
+# Identifiers that identify an *employment record*, not a person.
+#
+# The distinction is the rehire, and getting it wrong is the worst thing this
+# module can do. PAN is `identity: strong` and identifies a human nationally -
+# but one human can hold two employment records, which is exactly what a rehire
+# is. Unioning on PAN would silently merge the 2016-2019 stint with the 2022 one
+# and destroy the service history gratuity is computed from. So PAN never joins
+# rows here; it raises a question instead, via `_detect_shared_pan`.
+#
+# Work email and employee code are issued once per employment record, so they
+# may join.
+RECORD_IDENTIFIERS = ("employee_code", "work_email")
+
+
+def _record_identifiers(schema: TargetSchema) -> list[str]:
+    """Strong identifiers that are safe to merge on, in schema order."""
+    strong = {f.name for f in schema.identity_fields}
+    return [name for name in RECORD_IDENTIFIERS if name in strong] or list(
+        RECORD_IDENTIFIERS
+    )
+
+
+def _group_by_shared_identifiers(
+    rows: list[dict[str, Any]], schema: TargetSchema
+) -> tuple[list[list[dict[str, Any]]], list[str]]:
+    """Union rows that share any strong identifier, transitively.
+
+    Union-find rather than a single grouping key, because identifier coverage
+    differs between files: row A carries an email, row B the same person's
+    employee code, row C both. Only C can prove A and B are the same person, and
+    only a transitive join will let it.
+
+    Returns the groups and, for each, the identifier that joined it - which the
+    audit trail states as the basis for the merge.
+    """
+    strong = _record_identifiers(schema)
+
+    parent: dict[int, int] = {i: i for i in range(len(rows))}
+
+    def find(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    def union(a: int, b: int) -> None:
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[rb] = ra
+
+    # First index holder of each identifier value, so the second holder unions.
+    seen: dict[tuple[str, str], int] = {}
+    joined_on: dict[int, str] = {}
+    for index, row in enumerate(rows):
+        for field_name in strong:
+            value = _norm(row.get(field_name))
+            if not value:
+                continue
+            identifier = (field_name, value)
+            if identifier in seen:
+                union(seen[identifier], index)
+                joined_on.setdefault(find(index), field_name)
+            else:
+                seen[identifier] = index
+
+    buckets: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    for index, row in enumerate(rows):
+        buckets[find(index)].append(row)
+
+    groups = list(buckets.values())
+    bases = [joined_on.get(root, "") for root in buckets]
+    return groups, bases
+
+
+# How the audit trail names the identifier a merge was made on.
+IDENTIFIER_PHRASES = {
+    "work_email": "the same work email",
+    "employee_code": "the same employee code",
+    "pan": "the same PAN",
+}
 
 
 def _merge(
@@ -118,7 +213,11 @@ def _merge(
                 conflicts.append(f"{column}: kept '{fields[column]}', also saw '{value}'")
 
     record = TargetRecord(
-        key=str(fields.get("employee_code") or fields.get("work_email") or key),
+        key=str(
+            fields.get("employee_code")
+            or fields.get("work_email")
+            or ordered[0]["_source"]
+        ),
         fields=fields,
         sources=[row["_source"] for row in ordered],
     )
@@ -126,7 +225,7 @@ def _merge(
         record.errors.extend(row.get("_issues", []))
 
     if len(ordered) > 1:
-        basis = "the same work email" if key.startswith("email:") else "the same employee code"
+        basis = IDENTIFIER_PHRASES.get(key, "a shared unique identifier")
         audit.append(
             AuditEntry(
                 run_id=run_id,
@@ -295,6 +394,128 @@ def _detect_shared_pan(
             )
         )
     return out
+
+
+def _file_of(record: TargetRecord) -> str | None:
+    files = {source.rsplit("#", 1)[0] for source in record.sources}
+    return next(iter(files)) if len(files) == 1 else None
+
+
+def _collapse_cross_file_flood(
+    escalations: list[Escalation],
+    records: list[TargetRecord],
+    run_id: str,
+    decisions: dict[str, Any],
+    audit: list[AuditEntry],
+    emit: Emit,
+) -> tuple[list[Escalation], dict[str, Any]]:
+    """Many near-matches between the same two files are one question, not many.
+
+    Returns the escalations to raise and the decisions to apply - a batch
+    answer of "merge them all" is expanded into the per-pair merges that
+    `_apply_merges` already knows how to carry out.
+    """
+    by_key = {record.key: record for record in records}
+    pairs_by_files: dict[tuple[str, str], list[Escalation]] = defaultdict(list)
+    for esc in escalations:
+        left, right = (by_key.get(k) for k in esc.affected_records[:2])
+        if not left or not right:
+            continue
+        files = (_file_of(left), _file_of(right))
+        if files[0] and files[1] and files[0] != files[1]:
+            pairs_by_files[tuple(sorted(files))].append(esc)  # type: ignore[arg-type]
+    if not pairs_by_files:
+        return escalations, decisions
+
+    (file_a, file_b), pairs = max(pairs_by_files.items(), key=lambda kv: len(kv[1]))
+    rows_in = {
+        f: sum(1 for r in records if _file_of(r) == f) for f in (file_a, file_b)
+    }
+    if not policy.duplicates_are_a_flood(len(pairs), min(rows_in.values())):
+        return escalations, decisions
+
+    subject = f"identity-batch:{file_a}|{file_b}"
+    answer = decisions.get(subject)
+    others = [e for e in escalations if e not in pairs]
+
+    if answer == "review":
+        return escalations, decisions
+
+    if answer in ("merge_all", "separate_all"):
+        expanded = dict(decisions)
+        for esc in pairs:
+            left, right = (by_key[k] for k in esc.affected_records[:2])
+            if answer == "merge_all":
+                winner = max((left, right), key=lambda r: _completeness(r.fields))
+                expanded.setdefault(esc.subject, f"merge:{winner.key}")
+            else:
+                expanded.setdefault(esc.subject, "separate")
+        audit.append(
+            AuditEntry(
+                run_id=run_id,
+                actor=Actor.HUMAN,
+                action="resolve_duplicate_batch",
+                entity=f"{file_a} + {file_b}",
+                before=f"{len(pairs)} pairs matching on full name and date of birth",
+                after="merged pairwise" if answer == "merge_all" else "all kept separate",
+                disposition=Disposition.AUTO,
+                rationale=(
+                    f"A consultant confirmed the two files describe the same people"
+                    if answer == "merge_all"
+                    else "A consultant confirmed these are different people despite the matches"
+                ),
+            )
+        )
+        return others, expanded
+
+    emit(
+        f"{len(pairs)} near-matches between {file_a} and {file_b} - asking once about "
+        f"the two files, not once per pair"
+    )
+    examples = [
+        _name_of(by_key[e.affected_records[0]].fields).title() for e in pairs[:6]
+    ]
+    others.append(
+        Escalation(
+            run_id=run_id,
+            type=EscalationType.BATCH_ANOMALY,
+            subject=subject,
+            title=f"{file_a} and {file_b} look like two exports of the same people",
+            question=(
+                f"{len(pairs)} pairs of records - one from each file - share a full name and "
+                f"date of birth, but carry different employee codes and no shared unique "
+                f"identifier, so nothing joins them automatically. That is not {len(pairs)} "
+                f"coincidences; it is two systems describing the same staff. Merging is the "
+                f"usual answer, but a wrong merge is invisible once loaded, so it is one "
+                f"decision for you rather than {len(pairs)}."
+            ),
+            evidence={
+                "pair_count": len(pairs),
+                "files": {file_a: rows_in[file_a], file_b: rows_in[file_b]},
+                "basis": "full name and date of birth",
+                "examples": examples,
+            },
+            options=[
+                {
+                    "value": "merge_all",
+                    "label": "Same people - merge each pair",
+                    "detail": "keeps the more complete record, fills gaps from the other",
+                },
+                {
+                    "value": "separate_all",
+                    "label": "Different people - keep all",
+                    "detail": f"loads all {sum(rows_in.values())} as separate employees",
+                },
+                {
+                    "value": "review",
+                    "label": "Review each pair",
+                    "detail": f"{len(pairs)} individual questions",
+                },
+            ],
+            affected_records=[k for e in pairs for k in e.affected_records],
+        )
+    )
+    return others, decisions
 
 
 def _detect_near_duplicates(

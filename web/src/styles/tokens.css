@@ -1,0 +1,156 @@
+/* ==========================================================================
+   Design tokens — the whole look of the console lives in this one file.
+
+   Three axes of flexibility, all runtime-switchable with no rebuild:
+
+     [data-theme]    light | dark          the surface palette
+     [data-accent]   indigo | cyan | …     the brand hue
+     [data-density]  comfortable | compact row heights and type scale
+
+   Why plain custom properties rather than Tailwind `@theme` values: `@theme`
+   compiles to static CSS, so a second theme means a second stylesheet. These
+   are read at paint time, so flipping an attribute on <html> restyles the app
+   instantly. `index.css` aliases them into Tailwind's colour namespace, which
+   is what lets `bg-surface` and `text-ask` work while still being themeable.
+
+   Semantic colour is load-bearing here and never decorative:
+
+     auto   the agent did this itself and it was unambiguous
+     flag   the agent inferred this and applied it — audit, don't decide
+     ask    this is blocked on you
+     brand  navigation and the agent's own voice
+
+   A reviewer should be able to read disposition off the screen without
+   reading a word of it.
+   ========================================================================== */
+
+:root {
+  /* --- type, space, motion: theme-independent ---------------------------- */
+  --font-sans: "Inter var", "Inter", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+    monospace;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  --ease: cubic-bezier(0.22, 0.68, 0.28, 1);
+  --dur-fast: 0.13s;
+  --dur-med: 0.24s;
+
+  /* Density-driven. Overridden under [data-density="compact"] below. */
+  --row-y: 0.4rem;
+  --cell-y: 0.5rem;
+  --text-base: 13.5px;
+  --text-sm: 12px;
+  --text-xs: 11px;
+  --panel-pad: 1rem;
+
+  /* --- accent presets ---------------------------------------------------- */
+  /* Only the brand hue moves. The three disposition colours are fixed,
+     because "amber means inferred" has to survive a theme change. */
+  --accent-h: 262;
+  --accent-c: 0.17;
+}
+
+:root[data-accent="cyan"]    { --accent-h: 210; --accent-c: 0.13; }
+:root[data-accent="violet"]  { --accent-h: 300; --accent-c: 0.16; }
+:root[data-accent="emerald"] { --accent-h: 165; --accent-c: 0.13; }
+
+:root[data-density="compact"] {
+  --row-y: 0.22rem;
+  --cell-y: 0.3rem;
+  --text-base: 12.5px;
+  --text-sm: 11px;
+  --text-xs: 10px;
+  --panel-pad: 0.7rem;
+}
+
+/* ==========================================================================
+   LIGHT — "paper". Warm-neutral greys so a full day in front of it doesn't
+   glare, with the dispositions carrying all the saturation.
+   ========================================================================== */
+:root {
+  color-scheme: light;
+
+  --s-canvas:  oklch(0.975 0.004 255);
+  --s-surface: oklch(1 0 0);
+  --s-raised:  oklch(0.968 0.005 255);
+  --s-sunken:  oklch(0.945 0.006 255);
+  --s-line:    oklch(0.9 0.007 255);
+  --s-line-soft: oklch(0.945 0.005 255);
+
+  --s-ink:   oklch(0.24 0.016 255);
+  --s-muted: oklch(0.49 0.014 255);
+  --s-faint: oklch(0.63 0.012 255);
+
+  --s-brand:      oklch(0.53 var(--accent-c) var(--accent-h));
+  --s-brand-ink:  oklch(0.44 var(--accent-c) var(--accent-h));
+  --s-brand-soft: oklch(0.955 calc(var(--accent-c) * 0.22) var(--accent-h));
+  --s-on-brand:   #fff;
+
+  --s-auto:      oklch(0.53 0.12 162);
+  --s-auto-soft: oklch(0.955 0.036 162);
+  --s-flag:      oklch(0.58 0.13 68);
+  --s-flag-soft: oklch(0.96 0.045 80);
+  --s-ask:       oklch(0.545 0.19 18);
+  --s-ask-soft:  oklch(0.958 0.028 18);
+
+  --s-grad: linear-gradient(
+    135deg,
+    oklch(0.6 var(--accent-c) calc(var(--accent-h) - 35)) 0%,
+    oklch(0.53 var(--accent-c) var(--accent-h)) 55%,
+    oklch(0.58 calc(var(--accent-c) * 1.05) calc(var(--accent-h) + 40)) 100%
+  );
+
+  --aurora-a: oklch(0.7 0.13 var(--accent-h) / 0.1);
+  --aurora-b: oklch(0.72 0.12 calc(var(--accent-h) + 60) / 0.08);
+  --aurora-c: oklch(0.75 0.1 calc(var(--accent-h) - 60) / 0.06);
+
+  --shadow-sm: 0 1px 2px oklch(0.2 0.02 255 / 0.05);
+  --shadow-md: 0 4px 14px oklch(0.2 0.02 255 / 0.07);
+  --shadow-lg: 0 14px 40px oklch(0.2 0.02 255 / 0.12);
+  --ring: oklch(0.53 var(--accent-c) var(--accent-h) / 0.35);
+}
+
+/* ==========================================================================
+   DARK — "deck". Cool near-black with lifted surfaces; the dispositions get
+   brighter and less saturated so they stay legible against it.
+   ========================================================================== */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --s-canvas:  oklch(0.155 0.012 258);
+  --s-surface: oklch(0.197 0.014 258);
+  --s-raised:  oklch(0.235 0.016 258);
+  --s-sunken:  oklch(0.175 0.013 258);
+  --s-line:    oklch(0.305 0.018 258);
+  --s-line-soft: oklch(0.255 0.015 258);
+
+  --s-ink:   oklch(0.955 0.005 258);
+  --s-muted: oklch(0.73 0.014 258);
+  --s-faint: oklch(0.575 0.014 258);
+
+  --s-brand:      oklch(0.73 calc(var(--accent-c) * 0.88) var(--accent-h));
+  --s-brand-ink:  oklch(0.8 calc(var(--accent-c) * 0.8) var(--accent-h));
+  --s-brand-soft: oklch(0.29 calc(var(--accent-c) * 0.42) var(--accent-h));
+  --s-on-brand:   oklch(0.15 0.02 258);
+
+  --s-auto:      oklch(0.78 0.14 162);
+  --s-auto-soft: oklch(0.275 0.055 162);
+  --s-flag:      oklch(0.82 0.13 80);
+  --s-flag-soft: oklch(0.29 0.055 75);
+  --s-ask:       oklch(0.72 0.16 18);
+  --s-ask-soft:  oklch(0.295 0.07 18);
+
+  --aurora-a: oklch(0.6 0.16 var(--accent-h) / 0.13);
+  --aurora-b: oklch(0.6 0.15 calc(var(--accent-h) + 60) / 0.1);
+  --aurora-c: oklch(0.6 0.13 calc(var(--accent-h) - 60) / 0.07);
+
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.4);
+  --shadow-md: 0 6px 20px oklch(0 0 0 / 0.45);
+  --shadow-lg: 0 18px 50px oklch(0 0 0 / 0.6);
+  --ring: oklch(0.73 var(--accent-c) var(--accent-h) / 0.4);
+}

@@ -137,7 +137,12 @@ def run(
     # Questions raised so far already stand for the records they touch. Linking
     # them first is what stops the validator asking the same thing a second time
     # in a different shape.
-    early = mapping_escalations + cleaned.escalations + identity_escalations
+    # One column name, one card - however many files it appears in, and
+    # whether the question came from the mapper or from the cleanser finding
+    # its values outside the vocabulary.
+    early = supervisor.one_card_per_column_name(
+        mapping_escalations + cleaned.escalations, emit
+    ) + identity_escalations
     pending = supervisor.pending_fields(result.mappings, cleaned.blocked_fields)
     per_record = supervisor.link_to_records(early, result.records)
 

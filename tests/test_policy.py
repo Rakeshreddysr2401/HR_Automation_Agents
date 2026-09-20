@@ -106,3 +106,93 @@ class TestSafeAliases:
         assert policy.SAFE_ALIASES["gender"]["m"] == "Male"
         assert policy.SAFE_ALIASES["employment_type"]["fte"] == "Permanent"
         assert policy.SAFE_ALIASES["status"]["left"] == "Inactive"
+
+
+class TestSelfDescription:
+    """The boundary the UI renders must be the boundary the code enforces.
+
+    `policy.describe()` exists so the supervision UI does not restate the
+    thresholds in TypeScript, where a second copy could drift from these ones.
+    These tests are what make that guarantee real: they assert the described
+    values *are* the module constants, so a threshold change that forgets the
+    description fails here rather than shipping a screen that lies.
+    """
+
+    def test_it_is_json_serialisable(self):
+        import json
+
+        json.dumps(policy.describe())
+
+    def test_every_tier_is_explained(self):
+        described = policy.describe()
+        assert {t["id"] for t in described["tiers"]} == {"auto", "flagged", "escalated"}
+        for tier in described["tiers"]:
+            assert tier["label"] and tier["meaning"]
+
+    def test_every_threshold_names_a_real_constant(self):
+        for group in policy.describe()["groups"]:
+            assert group["title"] and group["summary"]
+            for threshold in group["thresholds"]:
+                assert hasattr(policy, threshold["key"]), (
+                    f"{threshold['key']} is described but does not exist in policy.py"
+                )
+                assert threshold["name"] and threshold["note"]
+
+    def test_described_values_equal_the_constants(self):
+        """The anti-drift test.
+
+        Only the scalar thresholds are compared directly; the two entries that
+        describe a collection report its size, which is asserted separately.
+        """
+        sizes = {"SAFE_ALIASES", "RETRYABLE_STATUS"}
+        for group in policy.describe()["groups"]:
+            for threshold in group["thresholds"]:
+                key = threshold["key"]
+                if key in sizes:
+                    continue
+                assert threshold["value"] == getattr(policy, key), (
+                    f"{key} is described as {threshold['value']} but is "
+                    f"{getattr(policy, key)}"
+                )
+
+    def test_collection_thresholds_report_their_size(self):
+        described = {
+            threshold["key"]: threshold["value"]
+            for group in policy.describe()["groups"]
+            for threshold in group["thresholds"]
+        }
+        assert described["RETRYABLE_STATUS"] == len(policy.RETRYABLE_STATUS)
+        assert described["SAFE_ALIASES"] == sum(
+            len(values) for values in policy.SAFE_ALIASES.values()
+        )
+
+    def test_the_mapping_thresholds_are_all_described(self):
+        """The mapping group is the one a reviewer reads first, so it must be
+        complete rather than merely consistent."""
+        described = {
+            threshold["key"]
+            for group in policy.describe()["groups"]
+            if group["id"] == "mapping"
+            for threshold in group["thresholds"]
+        }
+        assert {
+            "MAPPING_AUTO_MIN",
+            "MAPPING_MARGIN_MIN",
+            "MAPPING_IGNORE_MAX",
+            "LEXICAL_EVIDENCE_FLOOR",
+        } <= described
+
+    def test_the_principle_is_stated(self):
+        principle = policy.describe()["principle"].lower()
+        assert "silent" in principle and "irreversible" in principle
+
+
+class TestPushRejectionFlood:
+    def test_below_the_minimum_is_not_a_flood(self):
+        assert not policy.rejections_are_a_flood(policy.PUSH_REJECTION_FLOOD_MIN - 1, 5)
+
+    def test_a_minority_is_not_a_flood(self):
+        assert not policy.rejections_are_a_flood(10, 100)
+
+    def test_most_of_the_batch_is(self):
+        assert policy.rejections_are_a_flood(40, 41)

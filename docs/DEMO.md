@@ -21,11 +21,11 @@ Press **Run the sample migration**. Let the live log scroll — it narrates itse
 one line:
 
 > "It worked out that this column is day-month-year because 18 rows have a day above 12.
-> It applied that to all 33 and told me, rather than asking."
+> It applied that to the whole column and told me, rather than asking."
 
 ### 0:25 — The queue (15s)
 
-> "Thirty-five columns, fifty-two people, and it needs me for **ten** things. That ratio is
+> "Thirty-five columns, fifty-four rows, and it needs me for **eight** things. That ratio is
 > the whole point — it didn't ask me to confirm every field, and it didn't guess at the
 > things it couldn't know."
 
@@ -45,14 +45,17 @@ Choose **Keep both — this is a rehire**. Answer the rest quickly, then **Apply
 Watch the second pass:
 
 > "One answer changed more than one field. Confirming which column holds the work email
-> let it match the two files against each other — fifty-two records just became forty-one,
-> and two validation failures fixed themselves because the merge supplied what was missing."
+> settled what the other email column can be, and let it check the reporting tree at all —
+> fifty-four rows are now forty-one people, and three questions it *couldn't* ask before
+> just appeared: a reporting loop and a manager nobody in the files has. It waited on
+> those on purpose — checking managers against half the emails would have invented
+> orphans."
 
 ### 1:20 — Push, and the trail (10s)
 
-> "Forty records loaded. Two hit transient errors and succeeded on retry. One was rejected
-> by the target on business grounds — retrying wouldn't change that answer, so it came back
-> to me."
+> "Thirty-nine records loaded. Two hit transient errors and succeeded on retry. One was
+> rejected by the target on business grounds — retrying wouldn't change that answer, so it
+> came back to me."
 
 Open **Audit**, filter to **human**:
 
@@ -64,7 +67,7 @@ Open **Audit**, filter to **human**:
 
 - **No questions appear** — a previous run's memory suppressed them. Delete the two `.db`
   files and start again.
-- **More than ten questions** — no embedding model reachable, so mapping is running on
+- **More than eight questions on the first pass** — no embedding model reachable, so mapping is running on
   column names alone. Check the header badges.
 - **A long pause on a card** — the reasoning model is writing the recommendation. It is not
   in the critical path; the question is already fully formed without it.

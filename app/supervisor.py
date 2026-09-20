@@ -21,8 +21,10 @@ two hundred.
 from __future__ import annotations
 
 from collections import defaultdict
+from typing import Callable
 
 from app import policy
+from app.schema import get_schema
 from app.models import (
     ColumnMapping,
     Disposition,
@@ -31,6 +33,8 @@ from app.models import (
     TargetRecord,
 )
 
+Emit = Callable[[str], None]
+
 # Questions about a column stand for every row beneath it; questions about a
 # record stand only for that record. Only the latter say anything about how much
 # of the dataset is actually in trouble.
@@ -38,6 +42,11 @@ COLUMN_LEVEL = {
     EscalationType.COLUMN_MAPPING,
     EscalationType.DATE_CONVENTION,
     EscalationType.ENUM_VALUE,
+    # "no column provides work_email" names every record, but it is one
+    # question about the schema's relationship to the file - not 300 records in
+    # trouble. Counting it as record-level tripped the breaker at 100% and hid
+    # two perfectly answerable questions behind "abort or continue".
+    EscalationType.FIELD_UNSOURCED,
 }
 RECORD_LEVEL = {
     EscalationType.VALIDATION_FAILED,
@@ -49,6 +58,27 @@ RECORD_LEVEL = {
 }
 
 
+def one_card_per_column_name(escalations: list[Escalation], emit: Emit = lambda _: None) -> list[Escalation]:
+    """Collapse identical column-mapping questions raised from several files."""
+    kept: list[Escalation] = []
+    first_by_key: dict[str, Escalation] = {}
+    for esc in escalations:
+        if esc.type is not EscalationType.COLUMN_MAPPING or esc.evidence.get("contest"):
+            kept.append(esc)
+            continue
+        key = str(esc.evidence.get("column", "")).strip().lower().replace("_", " ")
+        first = first_by_key.get(key)
+        if first is None:
+            first_by_key[key] = esc
+            kept.append(esc)
+            continue
+        also = first.evidence.setdefault("also_in", [])
+        also.append(esc.evidence.get("source_file"))
+        first.question += f" The same column appears in {esc.evidence.get('source_file')}; one answer covers both."
+        emit(f"'{esc.evidence.get('column')}' also appears in {esc.evidence.get('source_file')} - one question covers both files")
+    return kept
+
+
 def pending_fields(
     mappings: list[ColumnMapping], blocked_by_file: dict[str, set[str]] | None = None
 ) -> set[str]:
@@ -57,8 +87,12 @@ def pending_fields(
     for mapping in mappings:
         if mapping.disposition is not Disposition.ESCALATED:
             continue
-        # The contested field, plus the runner-up it is contested against.
-        pending.update(c.target_field for c in mapping.candidates[:2])
+        # The contested field, plus the runner-up when the question really is
+        # between the two. A low-confidence column with no close rival only
+        # holds its best candidate - holding a 0.18 runner-up would block
+        # validation of a field nobody is actually asking about.
+        contested = mapping.margin < policy.MAPPING_MARGIN_MIN
+        pending.update(c.target_field for c in mapping.candidates[: 2 if contested else 1])
     for fields in (blocked_by_file or {}).values():
         pending.update(fields)
     return pending
@@ -126,7 +160,24 @@ def evaluate_batch(
     )
     coverage = mapped / len(mappings) if mappings else 0.0
 
-    if mappings and coverage < policy.MIN_MAPPING_COVERAGE:
+    # Which required fields have a confident source. Open questions do not
+    # count: an analytics extract can make a dozen weak claims and still hold
+    # no names, no dates and no email.
+    required = [f.name for f in get_schema().required_fields]
+    sourced = {
+        m.target_field for m in mappings
+        if m.target_field and m.disposition in (Disposition.AUTO, Disposition.FLAGGED)
+    } | {
+        f for m in mappings if m.transform == "split_full_name" for f in ("first_name", "last_name")
+    }
+    found = sum(1 for f in required if f in sourced)
+    required_coverage = found / len(required) if required else 1.0
+
+    if (
+        mappings
+        and coverage < policy.MIN_MAPPING_COVERAGE
+        and required_coverage < policy.MIN_REQUIRED_FIELDS_FOUND
+    ):
         return Escalation(
             run_id=run_id,
             type=EscalationType.BATCH_ANOMALY,
@@ -134,15 +185,18 @@ def evaluate_batch(
             title="These files do not look like employee data",
             question=(
                 f"Only {mapped} of {len(mappings)} columns ({coverage:.0%}) resemble anything "
-                f"in the employee schema. Rather than raise a question per column, it is "
-                f"worth checking whether this is the right export - the shape suggests a "
-                f"different entity altogether."
+                f"in the employee schema, and just {found} of the {len(required)} fields it "
+                f"requires have any source at all. Rather than raise a question per column, "
+                f"it is worth checking whether this is the right export - the shape suggests "
+                f"a different entity altogether."
             ),
             evidence={
                 "mapped_columns": mapped,
                 "total_columns": len(mappings),
                 "coverage": round(coverage, 3),
                 "threshold": policy.MIN_MAPPING_COVERAGE,
+                "required_fields_found": found,
+                "required_fields": len(required),
                 "unmapped": [m.column for m in mappings if not m.target_field][:20],
             },
             options=[

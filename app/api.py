@@ -26,6 +26,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+import yaml
 from fastapi import APIRouter, Body, File, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from langgraph.types import Command
@@ -119,9 +120,23 @@ async def run_events(run_id: str, request: Request) -> StreamingResponse:
                 )
                 graph_input: Any = Command(resume={"decisions": decisions})
             else:
-                graph_input = {"run_id": run_id, "files": run["files"], "decisions": {}}
+                # Seeded rather than empty, so a run started from a recipe has
+                # those answers in hand on the *first* pass. With no recipe this
+                # is an empty dict and the run behaves exactly as before.
+                seeded = store.get_decisions(run_id)
+                if seeded:
+                    yield _sse(
+                        {
+                            "type": "progress",
+                            "text": (
+                                f"Starting with {len(seeded)} answer(s) replayed from a recipe"
+                            ),
+                        }
+                    )
+                graph_input = {"run_id": run_id, "files": run["files"], "decisions": seeded}
 
             interrupted = False
+            round_number = 0
             async for mode, chunk in graph.astream(
                 graph_input, config, stream_mode=["updates", "custom"]
             ):
@@ -133,6 +148,7 @@ async def run_events(run_id: str, request: Request) -> StreamingResponse:
                     if "__interrupt__" in chunk:
                         interrupted = True
                         value = chunk["__interrupt__"][0].value
+                        round_number = int(value.get("round", 0) or 0)
                         yield _sse(
                             {
                                 "type": "escalations",
@@ -152,6 +168,7 @@ async def run_events(run_id: str, request: Request) -> StreamingResponse:
                         "type": "awaiting",
                         "escalations": store.list_escalations(run_id, status="open"),
                         "summary": run_now.get("summary", {}),
+                        "round": round_number,
                     }
                 )
             else:
@@ -217,16 +234,22 @@ async def get_summary(run_id: str) -> dict[str, Any]:
 
 @router.post("/runs/{run_id}/retry")
 async def retry_push(run_id: str, payload: dict[str, Any] = Body(default={})) -> dict[str, Any]:
-    """Re-attempt records whose failure was transient."""
+    """Re-attempt records whose failure was transient.
+
+    With no keys, only transient failures are retried. Named keys may also
+    include rolled-back records - that is a human explicitly asking for them
+    to be pushed again, not the agent deciding to.
+    """
     store = get_store()
     if not store.get_run(run_id):
         raise HTTPException(404, "no such run")
     keys = payload.get("keys")
+    retryable = ("failed", "rolled_back") if keys else ("failed",)
     records = store.list_records(run_id)
     targets = [
         r
         for r in records
-        if r.get("push_status") == "failed" and (not keys or r["key"] in keys)
+        if r.get("push_status") in retryable and (not keys or r["key"] in keys)
     ]
     if not targets:
         return {"retried": 0, "detail": "nothing is in a retryable state"}
@@ -256,3 +279,134 @@ async def rollback_push(run_id: str, payload: dict[str, Any] = Body(...)) -> dic
 async def get_memory() -> dict[str, Any]:
     """Column mappings confirmed by a human, reusable across runs and clients."""
     return {"memory": get_store().list_memory()}
+
+
+# ---------------------------------------------------------------------------
+# Inspection: the boundary, the schema, the mapping
+# ---------------------------------------------------------------------------
+
+
+@router.get("/policy")
+async def get_policy() -> dict[str, Any]:
+    """The escalation boundary, served from `app/policy.py` itself.
+
+    The UI renders this rather than restating the thresholds in TypeScript. A
+    second copy of the numbers could drift from the real ones, and then the
+    screen explaining the agent's judgment would be the least trustworthy thing
+    on it.
+    """
+    from app import policy
+
+    return policy.describe()
+
+
+@router.get("/schema")
+async def get_target_schema() -> dict[str, Any]:
+    """The target schema, for the mapping view and the correction dropdowns."""
+    from app.schema import get_schema
+
+    schema = get_schema()
+    return {
+        "entity": schema.entity,
+        "version": schema.version,
+        "fields": [
+            {
+                "name": f.name,
+                "type": f.type,
+                "description": f.description,
+                "required": f.required,
+                "unique": f.unique,
+                "identity": f.identity,
+                "format": f.format,
+                "enum": f.enum,
+                "pii": f.pii,
+                "references": f.references,
+            }
+            for f in schema.fields
+        ],
+        "business_rules": schema.business_rules,
+    }
+
+
+@router.get("/runs/{run_id}/mappings")
+async def get_mappings(run_id: str) -> dict[str, Any]:
+    store = get_store()
+    if not store.get_run(run_id):
+        raise HTTPException(404, "no such run")
+    return {"mappings": store.list_mappings(run_id)}
+
+
+# ---------------------------------------------------------------------------
+# The dry run and the recipe
+# ---------------------------------------------------------------------------
+
+
+@router.get("/runs/{run_id}/plan")
+async def get_plan(run_id: str) -> dict[str, Any]:
+    """Exactly what will be sent, per record, before anything is sent."""
+    from app import plan as plan_module
+
+    store = get_store()
+    if not store.get_run(run_id):
+        raise HTTPException(404, "no such run")
+    return plan_module.build(run_id, store)
+
+
+@router.get("/runs/{run_id}/recipe")
+async def get_recipe(run_id: str, format: str = "json") -> Any:
+    """Export this run's decisions as a reusable migration recipe."""
+    from app import recipe as recipe_module
+
+    store = get_store()
+    if not store.get_run(run_id):
+        raise HTTPException(404, "no such run")
+    built = recipe_module.build(run_id, store)
+    if format == "yaml":
+        from fastapi.responses import PlainTextResponse
+
+        return PlainTextResponse(
+            recipe_module.to_yaml(built),
+            media_type="text/yaml",
+            headers={
+                "Content-Disposition": f'attachment; filename="recipe_{run_id}.yaml"'
+            },
+        )
+    return built
+
+
+@router.post("/runs/{run_id}/recipe")
+async def apply_recipe(run_id: str, payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    """Seed a run with the answers from a previous migration's recipe.
+
+    Applied before the run starts, so those subjects never become questions.
+    Only the `answers` block is replayed - the mappings are re-derived against
+    the new files, which is what catches the case where the next export really
+    does differ.
+    """
+    from app import recipe as recipe_module
+
+    store = get_store()
+    run = store.get_run(run_id)
+    if not run:
+        raise HTTPException(404, "no such run")
+    # A run is registered as "running" the moment it is created, so status is
+    # not the test. A summary only exists once an analysis pass has finished,
+    # which is exactly the point after which seeding would be too late to stop
+    # those subjects becoming questions.
+    if run.get("summary"):
+        raise HTTPException(
+            409,
+            "this run has already been analysed; apply a recipe to a fresh run so "
+            "the answers are in hand on the first pass",
+        )
+
+    body = payload.get("recipe")
+    try:
+        parsed = recipe_module.parse(body) if isinstance(body, str) else body
+        answers = recipe_module.apply(parsed)
+    except (ValueError, yaml.YAMLError) as exc:
+        raise HTTPException(400, f"that is not a readable recipe: {exc}") from exc
+
+    for subject, answer in answers.items():
+        store.save_decision(run_id, subject, answer)
+    return {"seeded": len(answers), "subjects": sorted(answers)}

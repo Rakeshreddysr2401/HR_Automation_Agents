@@ -1,0 +1,16 @@
+employee_code,first_name,last_name,work_email,personal_email,phone,date_of_birth,date_of_joining,department,designation,employment_type,gender,status
+T1000,Aarav,Sharma,aarav.sharma@novatech.in,aarav0@gmail.com,+919820000000,1985-01-10,01/04/2010,Engineering,Engineer,Permanent,Male,Active
+T1001,Diya,Patel,diya.patel@novatech.in,diya1@gmail.com,+919820000037,1986-02-11,02/05/2011,Sales,Analyst,Permanent,Female,Active
+T1002,Rohan,Mehta,rohan.mehta@novatech.in,rohan2@gmail.com,+919820000074,1987-03-12,03/06/2012,Marketing,Manager,Permanent,Male,Active
+T1003,Ananya,Iyer,ananya.iyer@novatech.in,ananya3@gmail.com,+919820000111,1988-04-13,04/07/2013,Finance,Lead,Permanent,Female,Active
+T1004,Vikram,Nair,vikram.nair@novatech.in,vikram4@gmail.com,+919820000148,1989-05-14,05/08/2014,Operations,Engineer,Permanent,Male,Active
+T1005,Meera,Joshi,meera.joshi@novatech.in,meera5@gmail.com,+919820000185,1990-06-15,06/09/2015,Engineering,Analyst,Permanent,Female,Active
+T1006,Karan,Reddy,karan.reddy@novatech.in,karan6@gmail.com,+919820000222,1991-07-16,07/01/2016,Sales,Manager,Permanent,Male,Active
+T1007,Priya,Gupta,priya.gupta@novatech.in,priya7@gmail.com,+919820000259,1992-08-17,08/02/2017,Marketing,Lead,Permanent,Female,Active
+T1008,Arjun,Rao,arjun.rao@novatech.in,arjun8@gmail.com,+919820000296,1993-09-18,09/03/2018,Finance,Engineer,Permanent,Male,Active
+T1009,Sneha,Kapoor,sneha.kapoor@novatech.in,sneha9@gmail.com,+919820000333,1994-01-10,01/04/2010,Operations,Analyst,Permanent,Female,Active
+T1010,Rahul,Desai,rahul.desai@novatech.in,rahul10@gmail.com,+919820000370,1995-02-11,02/05/2011,Engineering,Manager,Permanent,Male,Active
+T1011,Nisha,Bose,nisha.bose@novatech.in,nisha11@gmail.com,+919820000407,1996-03-12,03/06/2012,Sales,Lead,Permanent,Female,Active
+T1012,Sameer,Khanna,sameer.khanna@novatech.in,sameer12@gmail.com,+919820000444,1985-04-13,04/07/2013,Marketing,Engineer,Permanent,Male,Active
+T1013,Tara,Malhotra,tara.malhotra@novatech.in,tara13@gmail.com,+919820000481,1986-05-14,05/08/2014,Finance,Analyst,Permanent,Female,Active
+T1014,Dev,Shetty,dev.shetty@novatech.in,dev14@gmail.com,+919820000518,1987-06-15,06/09/2015,Operations,Manager,Permanent,Male,Active

@@ -42,9 +42,12 @@ Open **http://localhost:8000** and press *Run the sample migration*.
 
 ### What you should see
 
-The agent reads both sample exports and stops with **ten questions** out of 35
-source columns and 52 people. That ratio is the point of the project: everything
-else it settled on its own.
+The agent reads both sample exports and stops with **eight questions** out of 35
+source columns and 54 rows. That ratio is the point of the project: everything else
+it settled on its own. Three more surface as your answers unlock checks it could not
+run yet (which field the second email column feeds, a reporting loop, a manager
+nobody in the files has), then it loads 39 records and hands you the one the target
+refuses.
 
 The questions are one contested column mapping, one date column with no way to tell
 day-first from month-first, one unrecognised department value, a suspected rehire, a
@@ -204,6 +207,6 @@ Look at the terminal. The analyse pass is a few seconds with warm embeddings, lo
 on the first run while every target field is embedded. `GET /api/runs/{id}/summary`
 shows the current state.
 
-**The agent asks far more than ten questions.**
+**The agent asks far more than eight questions on the first pass.**
 Almost always means no embedding model is reachable, so mapping is running on column
 names alone. Check the header badges.

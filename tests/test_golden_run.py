@@ -38,10 +38,21 @@ EXPECTED_FIRST_PASS = {
     "record:E0910",
     # inactive with no exit date
     "record:E1034",
-    # required fields the merge cannot supply while work_email is contested
-    "record:E1023",
-    "record:E1025",
 }
+
+# Two subjects used to be here - `record:E1023` and `record:E1025` - failing
+# because "the merge cannot supply their fields while work_email is contested".
+# That was a defect in the identity resolver, not a property of the data: it
+# grouped each row under *one* identifier, preferring work email, so a row
+# carrying only an employee code could never meet a row carrying an email, even
+# when both codes matched. Rows are now joined across any shared record
+# identifier, so the two files reconcile on employee_code immediately and those
+# fields are supplied without anyone being asked.
+#
+# The agent asks two fewer questions and reaches 42 people on the first pass
+# instead of 52. PAN deliberately does not join rows - see
+# `identity.RECORD_IDENTIFIERS` - because one person may hold two employment
+# records, which is exactly what `rehire:E0910|E1031` below is.
 
 
 @needs_embeddings
@@ -89,13 +100,12 @@ class TestFirstPass:
 
 @needs_embeddings
 class TestAnswersCascade:
-    def test_one_answer_reconciles_the_files(self):
+    def test_one_answer_changes_more_than_one_field(self):
         """Confirming the work email column is not a one-field change.
 
-        It lets the identity resolver match the two files against each other,
-        which merges records and resolves validation failures whose missing
-        fields the merge supplies. This is why answers are re-run through the
-        pipeline rather than patched into its output.
+        It decides which field that column feeds, which changes what validates
+        and lets the hierarchy check run at all. This is why answers are re-run
+        through the whole pipeline rather than patched into its output.
         """
         before = run(FILES, "cascade_before")
         after = run(
@@ -104,14 +114,15 @@ class TestAnswersCascade:
             decisions={"contest:legacy_hris_export.csv:work_email": "Official Email"},
         )
 
-        assert len(after.records) < len(before.records), "the two files should reconcile"
-        assert len(after.records) == 42
+        # The files now reconcile on employee_code before anyone is asked
+        # anything, so both passes already hold 42 people. What the answer still
+        # changes is which *field* the contested column feeds, and therefore
+        # which records validate and what the hierarchy check can see.
+        assert len(before.records) == len(after.records) == 42
 
-        resolved_by_merge = {"record:E1023", "record:E1025"}
-        still_open = {e.subject for e in after.escalations}
-        assert not (resolved_by_merge & still_open), (
-            "these failed only because the merge had not yet supplied their fields"
-        )
+        assert {e.subject for e in before.escalations} - {
+            e.subject for e in after.escalations
+        }, "answering should retire at least the question it answered"
 
     def test_hierarchy_problems_surface_once_emails_are_known(self):
         after = run(
@@ -166,3 +177,51 @@ class TestDegradedWithoutModels:
         asked = sum(1 for m in result.mappings if m.disposition.value == "escalated")
         assert result.records, "a migration must still produce records"
         assert asked >= 2, "without semantic scoring it should ask at least as much"
+
+
+@needs_embeddings
+class TestManagerReassignment:
+    def test_reassigning_to_a_known_manager_settles_it(self):
+        decisions = dict(
+            _DRAINED,
+            **{
+                "manager:former.manager@novatech.in": {
+                    "action": "edit",
+                    "fields": {"manager_email": "Rahul.Chopra@novatech.in"},
+                }
+            },
+        )
+        result = run(FILES, "reassign_known", decisions=decisions)
+        assert result.escalations == []
+        sanjay = next(r for r in result.records if r.key == "E1025")
+        assert sanjay.fields["manager_email"] == "rahul.chopra@novatech.in"
+
+    def test_reassigning_to_a_stranger_asks_again(self):
+        """The new address is checked like any other: a manager nobody in the
+        files has is still an orphaned reporting line."""
+        decisions = dict(
+            _DRAINED,
+            **{
+                "manager:former.manager@novatech.in": {
+                    "action": "edit",
+                    "fields": {"manager_email": "nobody@novatech.in"},
+                }
+            },
+        )
+        result = run(FILES, "reassign_unknown", decisions=decisions)
+        assert {e.subject for e in result.escalations} == {"manager:nobody@novatech.in"}
+
+
+_DRAINED = {
+    "contest:legacy_hris_export.csv:work_email": "Official Email",
+    "map:legacy_hris_export.csv:Mail ID": "personal_email",
+    "date:payroll_system.xlsx:joining_dt": "DMY",
+    "enum:department:engg": "Engineering",
+    "rehire:E0910|E1031": "separate",
+    "identity:E1032|P2201": "merge:E1032",
+    "cycle:E1005|E1013": "cycle-clear:E1013",
+    "cycle-clear:E1013": True,
+    "record:E1010": {"action": "edit", "fields": {"pan": "ABCDE1234F"}},
+    "record:E0910": {"action": "edit", "fields": {"date_of_exit": "2019-06-30"}},
+    "record:E1034": {"action": "edit", "fields": {"date_of_exit": "2024-03-31"}},
+}

@@ -1,0 +1,16 @@
+emp_cd,fname,surname,official_email,mobile,dob,doj,division,job_title,worker_category,gender,status
+T1000,Aarav,Sharma,aarav.sharma@novatech.in,+919820000000,1985-01-10,2015-01-13,Engineering,Engineer,FTE,M,A
+T1001,Diya,Patel,diya.patel@novatech.in,+919820000037,1986-02-11,2016-02-14,Sales,Analyst,FTE,F,A
+T1002,Rohan,Mehta,rohan.mehta@novatech.in,+919820000074,1987-03-12,2017-03-15,Marketing,Manager,FTE,M,A
+T1003,Ananya,Iyer,ananya.iyer@novatech.in,+919820000111,1988-04-13,2018-04-16,Finance,Lead,FTE,F,A
+T1004,Vikram,Nair,vikram.nair@novatech.in,+919820000148,1989-05-14,2019-05-17,Operations,Engineer,FTE,M,A
+T1005,Meera,Joshi,meera.joshi@novatech.in,+919820000185,1990-06-15,2020-06-18,Engineering,Analyst,FTE,F,A
+T1006,Karan,Reddy,karan.reddy@novatech.in,+919820000222,1991-07-16,2021-07-19,Sales,Manager,FTE,M,A
+T1007,Priya,Gupta,priya.gupta@novatech.in,+919820000259,1992-08-17,2022-08-20,Marketing,Lead,FTE,F,A
+T1008,Arjun,Rao,arjun.rao@novatech.in,+919820000296,1993-09-18,2015-09-21,Finance,Engineer,FTE,M,A
+T1009,Sneha,Kapoor,sneha.kapoor@novatech.in,+919820000333,1994-01-10,2016-01-22,Operations,Analyst,FTE,F,A
+T1010,Rahul,Desai,rahul.desai@novatech.in,+919820000370,1995-02-11,2017-02-23,Engineering,Manager,FTE,M,A
+T1011,Nisha,Bose,nisha.bose@novatech.in,+919820000407,1996-03-12,2018-03-24,Sales,Lead,FTE,F,A
+T1012,Sameer,Khanna,sameer.khanna@novatech.in,+919820000444,1985-04-13,2019-04-25,Marketing,Engineer,FTE,M,A
+T1013,Tara,Malhotra,tara.malhotra@novatech.in,+919820000481,1986-05-14,2020-05-26,Finance,Analyst,FTE,F,A
+T1014,Dev,Shetty,dev.shetty@novatech.in,+919820000518,1987-06-15,2021-06-27,Operations,Manager,FTE,M,A

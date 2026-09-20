@@ -15,7 +15,8 @@ fields:
     identity: strong          # a strong identity key for duplicate detection
     description: >-
       Unique employee number or staff ID assigned by the employer. Also called
-      employee id, emp code, staff number, personnel number, associate id.
+      employee id, employee number, emp id, emp code, emp no, staff number,
+      personnel number, associate id.
     max_length: 20
 
   - name: first_name
@@ -135,7 +136,8 @@ fields:
     type: enum
     required: false
     description: >-
-      Employee's gender as recorded for statutory diversity reporting.
+      Employee's gender as recorded for statutory diversity reporting. Also
+      called sex.
     enum:
       - Male
       - Female
@@ -172,6 +174,7 @@ fields:
 
   - name: bank_account
     type: string
+    format: bank_account
     required: false
     pii: true
     description: >-

@@ -114,12 +114,31 @@ Retrying further only burns time on data that needs a decision.
 target stating a business fact — "this employee code already exists" — which retrying
 cannot fix and only a human can adjudicate.
 
+One rejection is a question about one record. When at least five records and half
+the batch come back with the *same* message, that is one question about the batch —
+almost always "the target already holds these people" after a re-run or a partial
+earlier load — and the agent asks it once: leave them all out, or review each one.
+Forty identical cards would be the flood this whole policy exists to prevent.
+
+### Two files that are the same people
+
+Merging on anything softer than a unique identifier is a judgment call, and it
+stays one per pair. But when most of one file near-matches the other on the same
+basis — full name and date of birth, different ID systems — that is one fact
+about the two files, and it is asked once: merge each pair, keep all, or review
+each. The per-pair questions remain available; they are simply not the default
+when there are two hundred of them.
+
 ### Too much escalating at once
 
 Per-record judgment cannot catch a wrong premise. If more than a quarter of records
 need a decision, or more than forty questions accumulate, the likely truth is not
 "this data is hard" but "this is the wrong export". The agent raises **one**
 batch-level question instead.
+
+The wrong-file check needs two signals, not one: few columns mapping *and* the
+schema's required fields missing. A real HRIS export can be two-thirds analytics
+columns and still carry every name, date and code the target needs.
 
 An agent that floods the queue has failed just as surely as one that guesses. It has
 simply moved the work rather than doing it.

@@ -44,6 +44,10 @@ class EscalationType(str, Enum):
     DUPLICATE_SUSPECTED = "duplicate_suspected"
     REHIRE_SUSPECTED = "rehire_suspected"
     VALIDATION_FAILED = "validation_failed"
+    # A required target field that no source column feeds. Field-level, not
+    # record-level: it stands for every record beneath it, the way a date or
+    # enum question does, and must be counted that way by the circuit breaker.
+    FIELD_UNSOURCED = "field_unsourced"
     HIERARCHY_ORPHAN = "hierarchy_orphan"
     HIERARCHY_CYCLE = "hierarchy_cycle"
     PUSH_REJECTED = "push_rejected"
@@ -158,7 +162,8 @@ class Escalation:
     # be carried into the next client's migration as remembered knowledge.
     # Shapes: "contest:<file>:<field>", "map:<file>:<column>",
     # "date:<file>:<column>", "enum:<field>:<value>", "identity:<a>|<b>",
-    # "record:<key>", "manager:<email>", "cycle:<a>|<b>", "batch:<run>".
+    # "record:<key>", "field:<target>", "manager:<email>", "cycle:<a>|<b>",
+    # "batch:<run>".
     subject: str = ""
     evidence: dict[str, Any] = field(default_factory=dict)
     options: list[dict[str, Any]] = field(default_factory=list)

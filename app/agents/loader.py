@@ -64,9 +64,11 @@ def push_records(
     records: list[dict[str, Any]],
     emit: Emit = lambda _: None,
     client: httpx.Client | None = None,
+    decisions: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Push each ready record, retrying only what deserves it."""
     settings = get_settings()
+    decisions = decisions or {}
     store = get_store()
     base = settings.target_api_base.rstrip("/")
     owns_client = client is None
@@ -162,6 +164,7 @@ def push_records(
                             "employee_code": code,
                             "status_code": status,
                             "target_message": message,
+                            "editable_fields": ["employee_code"],
                             "record": {
                                 k: ("****" if k in get_schema().pii_fields and v else v)
                                 for k, v in (record.get("fields") or {}).items()
@@ -188,10 +191,29 @@ def push_records(
 
     if audit:
         store.append_audit(audit)
+
+    # Many rejections with one message are one question, not many. A consultant
+    # who has already said "review them individually" gets the individual cards.
+    if (
+        policy.rejections_are_a_flood(len(rejected), len(records))
+        and decisions.get("batch:push_rejected") != "review"
+    ):
+        by_message: dict[str, int] = {}
+        for esc in escalations:
+            msg = _generalise(str(esc.evidence.get("target_message", "")))
+            by_message[msg] = by_message.get(msg, 0) + 1
+        top_message, top_count = max(by_message.items(), key=lambda kv: kv[1])
+        if top_count / len(rejected) >= policy.PUSH_REJECTION_FLOOD_RATE:
+            emit(
+                f"{len(rejected)} of {len(records)} records were rejected for the same "
+                f"reason - asking once about the batch, not once per record"
+            )
+            escalations = [_flood_escalation(run_id, rejected, len(records), top_message, escalations)]
+
     if escalations:
-        existing = store.list_escalations(run_id, status="open")
         store.replace_escalations(run_id, escalations)
-        emit(f"{len(escalations)} record(s) need a decision before they can be loaded")
+        if len(escalations) > 1 or escalations[0].type is not EscalationType.BATCH_ANOMALY:
+            emit(f"{len(escalations)} record(s) need a decision before they can be loaded")
 
     emit(
         f"Pushed {len(succeeded)} record(s); {len(failed)} failed, {len(rejected)} rejected"
@@ -203,6 +225,59 @@ def push_records(
         "failed_keys": failed,
         "rejected_keys": rejected,
     }
+
+
+def _generalise(message: str) -> str:
+    """'employee_code E1021 already exists' and '... E1022 already exists' are the
+    same reason. Strip the code-shaped tokens so they group together."""
+    import re
+
+    return re.sub(r"\b[A-Za-z]{0,3}\d{2,}[A-Za-z0-9-]*\b", "<code>", message).strip()
+
+
+def _flood_escalation(
+    run_id: str,
+    rejected: list[str],
+    attempted: int,
+    message: str,
+    individual: list[Escalation],
+) -> Escalation:
+    example = next(
+        (str(e.evidence.get("target_message", "")) for e in individual if e.evidence.get("target_message")),
+        message,
+    )
+    return Escalation(
+        run_id=run_id,
+        type=EscalationType.BATCH_ANOMALY,
+        subject="batch:push_rejected",
+        title=f"The target refused {len(rejected)} of {attempted} records for the same reason",
+        question=(
+            f"Every one of them came back with \"{example}\" (or the equivalent for its own "
+            f"code). When most of a batch is refused with one message the cause is almost "
+            f"never the records - usually the target already holds these people from an "
+            f"earlier load or a previous run of this migration. That is one decision, "
+            f"not {len(rejected)} separate ones."
+        ),
+        evidence={
+            "rejected_count": len(rejected),
+            "attempted": attempted,
+            "target_message": example,
+            "rejected_codes": rejected[:20],
+        },
+        options=[
+            {
+                "value": "skip",
+                "label": "Leave them all out",
+                "detail": "they are already in the target",
+            },
+            {
+                "value": "review",
+                "label": "Review each one",
+                "detail": f"{len(rejected)} individual questions",
+            },
+        ],
+        affected_records=list(rejected),
+    )
 
 
 def rollback(
@@ -221,6 +296,7 @@ def rollback(
 
     by_key = {r["key"]: r for r in store.list_records(run_id)}
     rolled_back: list[str] = []
+    failed: list[str] = []
     audit: list[AuditEntry] = []
 
     try:
@@ -231,10 +307,13 @@ def rollback(
             code = str((record.get("fields") or {}).get("employee_code") or key)
             try:
                 response = client.delete(f"{base}/employees/{code}", timeout=15.0)
-                ok = response.status_code < 400
+                # A compensating delete is idempotent: "already gone" is the
+                # outcome we wanted, not a failure to report.
+                ok = response.status_code < 400 or response.status_code == 404
             except httpx.RequestError as exc:
                 ok, response = False, exc
             if not ok:
+                failed.append(key)
                 store.log_push(run_id, key, 0, "rollback_failed", str(response)[:300])
                 continue
             rolled_back.append(key)
@@ -259,4 +338,4 @@ def rollback(
     if audit:
         store.append_audit(audit)
     emit(f"Rolled back {len(rolled_back)} record(s)")
-    return {"rolled_back": rolled_back, "count": len(rolled_back)}
+    return {"rolled_back": rolled_back, "count": len(rolled_back), "failed": failed}

@@ -1,36 +1,43 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { useStore } from "../state/store";
-import { Badge, Empty, Panel } from "./ui";
+import { Badge, Delta, Disclosure, Empty, Panel, Stat } from "./ui";
+import { IconArrow, IconBrain, IconList } from "./icons";
+import type { MemoryEntry } from "../types";
 
 const ACTION_LABELS: Record<string, string> = {
   normalise_values: "Tidied spacing and casing",
   canonicalise_value: "Mapped a value onto the schema's vocabulary",
   infer_date_convention: "Worked out a date format from the column",
+  set_date_convention: "Applied a date format a consultant confirmed",
   merge_duplicate: "Merged rows describing one person",
   repair_value: "Repaired a malformed value",
   push_record: "Loaded into the target system",
   defer_hierarchy_check: "Deferred a check until a question is answered",
+  rollback_record: "Removed from the target system",
 };
 
 /**
  * Autonomy has to be inspectable or it is just opacity with better manners.
- * This view is deliberately read-only: these decisions did not need a human, and
- * turning them into a second approval queue would defeat the point. But they are
- * all here, grouped, with the reasoning attached.
+ *
+ * This view is deliberately read-only: these are the decisions that did not
+ * need a human, and turning them into a second approval queue would defeat the
+ * entire point. But every one of them is here, grouped, with its reasoning.
  */
 export function DecisionsPanel() {
   const { audit, summary } = useStore();
-  const [memory, setMemory] = useState<
-    { column_key: string; target: string; times_used: number }[]
-  >([]);
-  const [open, setOpen] = useState<string | null>(null);
+  const [memory, setMemory] = useState<MemoryEntry[]>([]);
 
   useEffect(() => {
-    api.memory().then((r) => setMemory(r.memory)).catch(() => setMemory([]));
+    api
+      .memory()
+      .then((response) => setMemory(response.memory))
+      .catch(() => setMemory([]));
   }, [audit.length]);
 
   const byAgent = audit.filter((entry) => entry.actor === "agent");
+  const byHuman = audit.filter((entry) => entry.actor === "human");
+
   const groups = new Map<string, typeof byAgent>();
   for (const entry of byAgent) {
     const list = groups.get(entry.action) ?? [];
@@ -40,61 +47,91 @@ export function DecisionsPanel() {
 
   if (!byAgent.length) {
     return (
-      <Panel title="Decisions the agent made alone">
-        <Empty>Run a migration to see what it settled without asking.</Empty>
+      <Panel title="Autonomous Decisions" icon={<IconList />}>
+        <Empty icon={<IconList />}>
+          Run a migration to see what the system settled automatically — along with the exact reasoning
+          behind each decision.
+        </Empty>
       </Panel>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
+      <Panel icon={<IconList />} title="Autonomy Breakdown (Agent vs. Human)">
+        <div className="flex flex-wrap items-center gap-6">
+          <Stat
+            label="Autonomous Decisions"
+            value={byAgent.length}
+            tone="auto"
+            hint="Changes applied automatically by deterministic rules"
+          />
+          <Stat
+            label="Consultant Decisions"
+            value={byHuman.length}
+            tone="brand"
+            hint="Changes that came from human answers in the review queue"
+          />
+          <Stat label="Auto-Mapped Columns" value={summary.columns_auto ?? 0} tone="auto" />
+          <Stat
+            label="Ignored Columns"
+            value={summary.columns_ignored ?? 0}
+            hint="Confirmed unneeded columns — safely excluded from schema"
+          />
+          <p className="max-w-md text-[var(--text-xs)] leading-relaxed text-faint">
+            The balance is intentional: high-confidence, loud, deterministic fixes are handled
+            autonomously, while high-consequence business ambiguities are escalated for human review.
+          </p>
+        </div>
+      </Panel>
+
       <Panel
-        title="Decisions the agent made alone"
-        subtitle={`${byAgent.length} changes applied without asking — ${summary.columns_auto ?? 0} columns mapped, ${summary.columns_ignored ?? 0} left behind`}
+        title="Autonomous Actions & Fixes"
+        subtitle={`${byAgent.length} changes, grouped by kind`}
+        icon={<IconList />}
+        flush
       >
-        <div className="divide-y divide-line">
+        <div className="divide-y divide-line-soft">
           {[...groups.entries()]
             .sort((a, b) => b[1].length - a[1].length)
             .map(([action, entries]) => (
-              <div key={action}>
-                <button
-                  type="button"
-                  onClick={() => setOpen(open === action ? null : action)}
-                  className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-raised/40"
-                >
-                  <Badge tone={entries[0].disposition === "flagged" ? "flag" : "auto"}>
-                    {entries[0].disposition === "flagged" ? "inferred" : "automatic"}
-                  </Badge>
-                  <span className="flex-1 text-[13px]">
-                    {ACTION_LABELS[action] ?? action.replace(/_/g, " ")}
+              <Disclosure
+                key={action}
+                summary={
+                  <span className="flex items-center gap-2.5">
+                    <Badge tone={entries[0].disposition === "flagged" ? "flag" : "auto"}>
+                      {entries[0].disposition === "flagged" ? "inferred" : "automatic"}
+                    </Badge>
+                    <span className="text-[var(--text-base)]">
+                      {ACTION_LABELS[action] ?? action.replace(/_/g, " ")}
+                    </span>
                   </span>
-                  <span className="mono text-[12px] text-muted">{entries.length}</span>
-                  <span className="text-faint" aria-hidden>
-                    {open === action ? "−" : "+"}
+                }
+                right={
+                  <span className="mono tnum text-[var(--text-sm)] text-muted">
+                    {entries.length}
                   </span>
-                </button>
-                {open === action && (
-                  <ul className="space-y-1.5 border-t border-line bg-raised/30 px-4 py-3">
-                    {entries.slice(0, 12).map((entry) => (
-                      <li key={entry.id} className="text-[12px]">
-                        <span className="mono text-[11px] text-faint">{entry.entity}</span>
-                        <span className="mx-1.5">
-                          {String(entry.before ?? "") && (
-                            <span className="text-faint line-through">{String(entry.before)}</span>
-                          )}
-                          <span className="ml-1 font-medium">{String(entry.after ?? "")}</span>
-                        </span>
-                        <div className="text-muted">{entry.rationale}</div>
-                      </li>
-                    ))}
-                    {entries.length > 12 && (
-                      <li className="text-[11px] text-faint">
-                        …and {entries.length - 12} more, all in the audit trail.
-                      </li>
-                    )}
-                  </ul>
-                )}
-              </div>
+                }
+              >
+                <ul className="space-y-2 px-[var(--panel-pad)] py-3">
+                  {entries.slice(0, 12).map((entry) => (
+                    <li key={entry.id} className="text-[var(--text-sm)]">
+                      <div className="flex flex-wrap items-baseline gap-2">
+                        <code className="mono text-[var(--text-xs)] text-faint">
+                          {entry.entity}
+                        </code>
+                        <Delta before={entry.before} after={entry.after} />
+                      </div>
+                      <p className="mt-0.5 leading-relaxed text-muted">{entry.rationale}</p>
+                    </li>
+                  ))}
+                  {entries.length > 12 && (
+                    <li className="text-[var(--text-xs)] text-faint">
+                      …and {entries.length - 12} more, all in the audit trail.
+                    </li>
+                  )}
+                </ul>
+              </Disclosure>
             ))}
         </div>
       </Panel>
@@ -102,20 +139,25 @@ export function DecisionsPanel() {
       <Panel
         title="What it learned from you"
         subtitle="answers kept for the next file and the next client, so the same question is never asked twice"
+        icon={<IconBrain />}
+        flush={memory.length > 0}
       >
         {memory.length === 0 ? (
-          <Empty>
+          <Empty icon={<IconBrain />}>
             Nothing yet. Resolve a mapping question and it is remembered — re-run the same
             files afterwards and the agent will not ask again.
           </Empty>
         ) : (
-          <ul className="divide-y divide-line">
+          <ul className="divide-y divide-line-soft">
             {memory.map((item) => (
-              <li key={item.column_key} className="flex items-center gap-3 px-4 py-2 text-[13px]">
+              <li
+                key={item.column_key}
+                className="flex items-center gap-3 px-[var(--panel-pad)] py-[var(--row-y)] text-[var(--text-base)]"
+              >
                 <code className="mono">{item.column_key}</code>
-                <span className="text-faint" aria-hidden>→</span>
+                <IconArrow className="text-faint" />
                 <span className="font-medium">{item.target}</span>
-                <span className="ml-auto text-[11px] text-faint">
+                <span className="tnum ml-auto text-[var(--text-xs)] text-faint">
                   reused {item.times_used}×
                 </span>
               </li>

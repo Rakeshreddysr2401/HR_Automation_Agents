@@ -1,0 +1,48 @@
+# One command for an evaluator who does not want to install Python and Node:
+#
+#     docker compose up --build        then open http://localhost:8000
+#
+# It runs with no model server reachable, which is a real operating mode rather
+# than a broken one: the agent falls back to lexical scoring and asks more
+# questions. To get semantic scoring, run Ollama on the host
+# (`ollama pull nomic-embed-text`) and it will be found at host.docker.internal.
+
+services:
+  agent:
+    build: .
+    image: hr-work-automation
+    ports:
+      - "8000:8000"
+    environment:
+      # Reachable from a container on Docker Desktop; on Linux, see the
+      # extra_hosts entry below.
+      REASONING_PROVIDER: ollama
+      REASONING_BASE_URL: http://host.docker.internal:11434
+      EMBEDDING_PROVIDER: ollama
+      EMBEDDING_BASE_URL: http://host.docker.internal:11434
+      EMBEDDING_MODEL: nomic-embed-text
+      # Keep the run reproducible for a demo: these codes fail transiently and
+      # are retried, and this one is rejected outright and escalated.
+      TARGET_FAIL_CODES: "E1015,E1031"
+      TARGET_REJECT_CODES: "E1021"
+    volumes:
+      # Runs, escalations, records and the audit trail survive a restart. The
+      # image points DB_PATH, CHECKPOINT_PATH and UPLOAD_DIR into here.
+      - agent-state:/srv/state
+    # `host-gateway` makes host.docker.internal resolve on Linux too, where it
+    # is not provided automatically.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health').read()"
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  agent-state:

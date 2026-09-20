@@ -1,0 +1,16 @@
+employee_code,full_name,work_email,date_of_birth,date_of_joining,department,designation,employment_type,status
+T1000,"Sharma, Aarav",aarav.sharma@novatech.in,1985-01-10,2015-01-13,Engineering,Engineer,Permanent,Active
+T1001,"Patel, Diya",diya.patel@novatech.in,1986-02-11,2016-02-14,Sales,Analyst,Permanent,Active
+T1002,"Mehta, Rohan",rohan.mehta@novatech.in,1987-03-12,2017-03-15,Marketing,Manager,Permanent,Active
+T1003,"Iyer, Ananya",ananya.iyer@novatech.in,1988-04-13,2018-04-16,Finance,Lead,Permanent,Active
+T1004,"Nair, Vikram",vikram.nair@novatech.in,1989-05-14,2019-05-17,Operations,Engineer,Permanent,Active
+T1005,"Joshi, Meera",meera.joshi@novatech.in,1990-06-15,2020-06-18,Engineering,Analyst,Permanent,Active
+T1006,"Reddy, Karan",karan.reddy@novatech.in,1991-07-16,2021-07-19,Sales,Manager,Permanent,Active
+T1007,"Gupta, Priya",priya.gupta@novatech.in,1992-08-17,2022-08-20,Marketing,Lead,Permanent,Active
+T1008,"Rao, Arjun",arjun.rao@novatech.in,1993-09-18,2015-09-21,Finance,Engineer,Permanent,Active
+T1009,"Kapoor, Sneha",sneha.kapoor@novatech.in,1994-01-10,2016-01-22,Operations,Analyst,Permanent,Active
+T1010,"Desai, Rahul",rahul.desai@novatech.in,1995-02-11,2017-02-23,Engineering,Manager,Permanent,Active
+T1011,"Bose, Nisha",nisha.bose@novatech.in,1996-03-12,2018-03-24,Sales,Lead,Permanent,Active
+T1012,"Khanna, Sameer",sameer.khanna@novatech.in,1985-04-13,2019-04-25,Marketing,Engineer,Permanent,Active
+T1013,"Malhotra, Tara",tara.malhotra@novatech.in,1986-05-14,2020-05-26,Finance,Analyst,Permanent,Active
+T1014,"Shetty, Dev",dev.shetty@novatech.in,1987-06-15,2021-06-27,Operations,Manager,Permanent,Active

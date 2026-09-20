@@ -20,7 +20,7 @@ import threading
 from datetime import datetime, timezone
 from typing import Any
 
-from app.models import AuditEntry, Escalation, EscalationStatus, TargetRecord
+from app.models import AuditEntry, ColumnMapping, Escalation, EscalationStatus, TargetRecord
 from app.settings import get_settings
 
 SCHEMA = """
@@ -63,9 +63,25 @@ CREATE TABLE IF NOT EXISTS audit (
 CREATE TABLE IF NOT EXISTS records (
     run_id      TEXT NOT NULL,
     key         TEXT NOT NULL,
+    -- Position in the pipeline's output. Part of the key because a record key
+    -- is *not* unique mid-review: while the mapping that identifies people is
+    -- still contested, the same employee legitimately exists as two un-merged
+    -- halves carrying different fields, and they share an employee code. Keyed
+    -- on (run_id, key) alone, one half silently overwrote the other - so the
+    -- consultant reviewed half a person, and the record count on screen
+    -- disagreed with the one in the header. They merge on the next pass once
+    -- the question is answered; until then, both are real and both are kept.
+    seq         INTEGER NOT NULL,
     payload     TEXT NOT NULL,
     push_status TEXT NOT NULL,
-    PRIMARY KEY (run_id, key)
+    PRIMARY KEY (run_id, key, seq)
+);
+CREATE TABLE IF NOT EXISTS mappings (
+    run_id      TEXT NOT NULL,
+    source_file TEXT NOT NULL,
+    column      TEXT NOT NULL,
+    payload     TEXT NOT NULL,
+    PRIMARY KEY (run_id, source_file, column)
 );
 CREATE TABLE IF NOT EXISTS push_log (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -86,6 +102,7 @@ CREATE TABLE IF NOT EXISTS memory (
 );
 CREATE INDEX IF NOT EXISTS idx_audit_run ON audit(run_id);
 CREATE INDEX IF NOT EXISTS idx_esc_run ON escalations(run_id);
+CREATE INDEX IF NOT EXISTS idx_map_run ON mappings(run_id);
 """
 
 
@@ -305,30 +322,69 @@ class Store:
         with self._lock:
             self._conn.execute("DELETE FROM records WHERE run_id = ?", (run_id,))
             self._conn.executemany(
-                "INSERT OR REPLACE INTO records (run_id, key, payload, push_status) VALUES (?,?,?,?)",
-                [(run_id, r.key, json.dumps(r.as_dict()), r.push_status) for r in records],
+                "INSERT OR REPLACE INTO records (run_id, key, seq, payload, push_status) "
+                "VALUES (?,?,?,?,?)",
+                [
+                    (run_id, r.key, i, json.dumps(r.as_dict()), r.push_status)
+                    for i, r in enumerate(records)
+                ],
             )
             self._conn.commit()
 
     def update_push_status(self, run_id: str, key: str, status: str, detail: str = "") -> None:
+        """Record the outcome of a push attempt.
+
+        Updates every row under this key. Anything reaching the loader has
+        already merged, so in practice there is exactly one; if an un-merged
+        pair somehow got there, marking both is the honest outcome, because one
+        push did settle both halves.
+        """
         with self._lock:
-            row = self._conn.execute(
-                "SELECT payload FROM records WHERE run_id = ? AND key = ?", (run_id, key)
-            ).fetchone()
-            if row:
+            rows = self._conn.execute(
+                "SELECT seq, payload FROM records WHERE run_id = ? AND key = ?", (run_id, key)
+            ).fetchall()
+            for row in rows:
                 payload = json.loads(row["payload"])
                 payload["push_status"] = status
                 payload["push_detail"] = detail
                 self._conn.execute(
-                    "UPDATE records SET payload = ?, push_status = ? WHERE run_id = ? AND key = ?",
-                    (json.dumps(payload), status, run_id, key),
+                    "UPDATE records SET payload = ?, push_status = ? "
+                    "WHERE run_id = ? AND key = ? AND seq = ?",
+                    (json.dumps(payload), status, run_id, key, row["seq"]),
                 )
             self._conn.commit()
 
     def list_records(self, run_id: str) -> list[dict]:
         with self._lock:
             rows = self._conn.execute(
-                "SELECT payload FROM records WHERE run_id = ? ORDER BY key", (run_id,)
+                "SELECT payload FROM records WHERE run_id = ? ORDER BY key, seq", (run_id,)
+            ).fetchall()
+        return [json.loads(r["payload"]) for r in rows]
+
+    # --- mappings ----------------------------------------------------------
+    # Persisted for three readers that all need the same thing and would
+    # otherwise each re-derive it: the mapping view, the dry-run diff (which
+    # field came from which file), and the recipe export. Written on every
+    # analysis pass, so they always reflect the answers given so far.
+
+    def replace_mappings(self, run_id: str, mappings: list[ColumnMapping]) -> None:
+        with self._lock:
+            self._conn.execute("DELETE FROM mappings WHERE run_id = ?", (run_id,))
+            self._conn.executemany(
+                "INSERT OR REPLACE INTO mappings (run_id, source_file, column, payload) "
+                "VALUES (?,?,?,?)",
+                [
+                    (run_id, m.source_file, m.column, json.dumps(m.as_dict()))
+                    for m in mappings
+                ],
+            )
+            self._conn.commit()
+
+    def list_mappings(self, run_id: str) -> list[dict]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT payload FROM mappings WHERE run_id = ? ORDER BY source_file, column",
+                (run_id,),
             ).fetchall()
         return [json.loads(r["payload"]) for r in rows]
 

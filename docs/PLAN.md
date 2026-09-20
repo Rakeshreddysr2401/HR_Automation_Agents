@@ -29,8 +29,9 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - [x] `app/dates.py` — infers a column's convention from its unambiguous rows.
 - [x] **Identity Resolver** — merges on unique identifiers, escalates rehire-vs-duplicate.
 
-Result on the sample data: 35 columns → 34 mapped autonomously, 52 people
-reconciled, **5 escalations**, all of them genuine.
+Result on the sample data: 35 columns → 33 mapped or deliberately ignored
+autonomously, 54 rows reconciled into 41 people, **11 questions** across three
+review rounds, all of them genuine.
 
 ## Phase 2 — Validation and integrity `[x]`
 
@@ -62,7 +63,8 @@ reconciled, **5 escalations**, all of them genuine.
 - [x] Mock target API with deterministic failure injection and idempotency keys.
 - [x] **Loader** — push per record, auto-retry 5xx with backoff, escalate 4xx.
 - [x] Rollback via compensating deletes, requiring a reason, recorded in the audit.
-- [ ] Dry-run diff: exactly what will change, before anything is sent.
+- [x] Dry-run diff (`app/plan.py`): exactly what will be sent, per record,
+      with every autonomous edit attributed and PII masked on screen.
 
 ## Phase 5 — Supervision UI `[~]`
 
@@ -77,14 +79,28 @@ reconciled, **5 escalations**, all of them genuine.
       plus what it has learned from previous answers.
 - [x] Push results with retry and rollback controls (rollback demands a reason).
 - [x] Audit trail — timestamp, actor, before → after, rationale. PII masked.
-- [ ] Visual check in a browser — not yet done, no browser tooling in this session.
+      Filterable by actor, exportable as CSV.
+- [x] Mapping view — every column, its target, its score and its candidate set.
+- [x] Dry-run view — per-record payloads and the recipe export.
+- [x] Boundary view — `app/policy.py` rendered live over `GET /api/policy`, so the
+      screen explaining the agent's judgment cannot drift from the code enforcing it.
+- [x] Design token layer (`web/src/styles/tokens.css`) — theme, accent and density
+      as three runtime-switchable axes; Tailwind aliased to the tokens so a theme
+      flip needs no rebuild.
+- [x] Command palette (`⌘K`), shortcut sheet (`?`), toasts, run history.
+- [ ] Visual check in a browser — **still outstanding**; no browser tooling was
+      available in this session. The build, the typecheck, the compiled CSS
+      (all three axes present) and every API path have been verified, but layout
+      and spacing have not been seen by a human.
 
 ## Phase 6 — The differentiators `[~]`
 
-- [ ] **Migration recipe** — export the decision set as reviewable YAML, replayable
-      against the next client's files.
-- [ ] **Circuit breaker** — when too much escalates, raise one batch-level question
-      instead of flooding the queue.
+- [x] **Migration recipe** (`app/recipe.py`) — the decision set as reviewable YAML,
+      replayable against the next client's files. Verified: a fresh run seeded with
+      a previous run's recipe asks 1 question where it previously asked 10.
+- [x] **Circuit breaker** — when too much escalates, one batch-level question
+      instead of a flooded queue (`policy.should_trip_breaker`,
+      `supervisor.evaluate_batch`).
 - [x] **Threshold sweep** (`scripts/sweep_thresholds.py`) — measures what each
       threshold choice costs, so "why 0.82?" has an answer backed by numbers.
 - [x] **Mapping memory** — a human answer becomes a reusable rule; the second run of
@@ -92,13 +108,20 @@ reconciled, **5 escalations**, all of them genuine.
 
 ## Phase 7 — Delivery `[~]`
 
-- [x] `pytest` suite — 70 tests: policy boundaries, a golden run asserting the exact
-      escalation set, interrupt/resume, retry/rollback, dates and PII.
-- [ ] Frontend tests for the SSE parser and escalation-card decisions.
+- [x] `pytest` suite — 106 tests: policy boundaries and the self-description that
+      keeps the UI honest, a golden run asserting the exact escalation set,
+      interrupt/resume, retry/rollback, dates, PII, the recipe's no-record-data
+      guarantee, and the dry run's completeness.
+- [x] Frontend tests — 22 in Vitest: the SSE frame parser (including a frame split
+      across chunks, the case a naive split loses silently), the appearance store,
+      and escalation-card staging.
 - [x] `docs/WRITEUP.md` — one page: approach, where the line was drawn and why,
       what would come next.
 - [x] `docs/DEMO.md` — a 90-second script that resolves an escalation end to end.
-- [ ] Dockerfile and compose for a one-command run.
+- [x] Dockerfile and compose for a one-command run. Two stages so the runtime
+      image carries no Node; state under one volume. **Not yet built** — no Docker
+      daemon was running in this session, though the env-var contract it relies on
+      is verified.
 
 ---
 

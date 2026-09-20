@@ -13,7 +13,8 @@ of every change and why it was made. Where the data genuinely supports more than
 answer it stops and asks — and where it doesn't, it just gets on with it.
 
 On the sample data that is **35 columns and 54 rows across two files, reconciled into
-41 people, with 10 questions asked and 40 records loaded.**
+41 people, with 11 questions asked and 39 records loaded** — one more is refused by
+the target system and handed to a human rather than retried.
 
 ---
 
@@ -46,6 +47,12 @@ re-evaluate against what's left. This is what separates *genuinely ambiguous* fr
 *merely contested* — when one file carries both `Official Email` and `Mail ID`, each
 looks like the work address alone, and only the comparison reveals the doubt.
 
+A fourth signal is the content itself, checked deterministically and in-process:
+a column whose values never fit a field's declared format (PAN, phone, bank
+account), a 0/1 flag offered as a unique identifier, or numbers offered as a
+vocabulary of words are ruled out however closely the *names* resemble each other.
+On a real 64-column HRIS export this is what turns 35 questions into 13.
+
 **Result: 33 of 35 columns mapped with no human involvement.**
 
 ### 3. Clean what it can defend cleaning
@@ -73,6 +80,12 @@ employee codes, non-overlapping service is exactly what a duplicate looks like *
 exactly what a rehire looks like. Merging destroys the service history gratuity is
 computed from.
 
+When two files near-match each other wholesale — two exports of the same staff
+under different ID systems, every pair agreeing on full name and date of birth —
+that is one question about the files, not one per pair. On a real 311-row export in
+two versions it is asked once instead of 275 times, with "review each pair" still on
+offer.
+
 ### 5. Validate, repair once, then ask
 
 Required fields, formats (PAN `[A-Z]{5}[0-9]{4}[A-Z]`, UAN, IFSC, email), enums, and
@@ -96,8 +109,12 @@ after an ambiguous timeout can't create the same person twice.
 - **5xx and timeouts** → retried with backoff, unattended.
 - **4xx** → escalated with the target's own words. "This employee code already exists"
   doesn't become false on the third attempt.
+- **Most of the batch refused for one reason** → one question, not one per record.
+  Re-running a migration into a target that already holds everyone produces a single
+  card — "leave them all out, or review each?" — rather than forty.
 - **Rollback** → compensating deletes, and it refuses to run without a reason, because
-  the reason goes in the audit trail.
+  the reason goes in the audit trail. A rolled-back record stays out across later
+  re-analyses until a person explicitly pushes it again.
 
 Measured: **40 loaded, 2 recovered on retry, 1 escalated.**
 
@@ -125,6 +142,46 @@ inventory instead of employee data, it says so once rather than asking seven tim
 
 An agent that floods the queue has failed as surely as one that guesses — it has moved
 the work rather than done it.
+
+### 10. Show what it will send, before it sends it
+
+`GET /api/runs/{id}/plan`, and the **Dry run** tab. For each record: the exact payload
+the target will receive, which source file each field came from, which fields two files
+both supplied, and every edit the agent made without asking — each with its reason and
+its disposition. PII values are masked on screen, because a screen in an open-plan
+office is its own exposure surface even when the value never went near a model.
+
+This is the counterweight to the whole design. The queue is where the agent asks; this
+is where a consultant audits everything it *didn't* ask about. The claim that most
+decisions shouldn't need individual approval only holds if the aggregate is inspectable
+before the push.
+
+### 11. Export its decisions as something reusable
+
+`GET /api/runs/{id}/recipe?format=yaml`. The whole decision set as readable YAML:
+field mappings, dropped columns and why, date conventions, value vocabulary, identity
+adjudications, and every human answer keyed by the stable *subject* that replays it.
+Each rule is labelled **confirmed** (a person answered), **inferred** (the agent applied
+and flagged it) or **automatic**.
+
+It contains rules only, never records — a property a test enforces by asserting that no
+PAN, UAN, account number, email or surname from the run appears anywhere in the file. So
+it can be committed to a repository and reviewed in a pull request without a PII review.
+
+`POST /api/runs/{id}/recipe` seeds a fresh run with it. Measured on the sample: a run
+that asks eleven questions cold asks **one** when seeded with a previous run's recipe. Only
+the answers are replayed — the mappings are re-derived against the new file on purpose,
+because that is what catches an export that genuinely differs.
+
+### 12. Explain its own boundary
+
+`GET /api/policy` serves the escalation boundary from `app/policy.py` itself — the
+principle, the three tiers, and all 19 thresholds with the reasoning behind each. The
+**Boundary** tab renders it.
+
+The thresholds are not restated in the frontend. A second copy could drift from the
+real ones, and then the screen explaining the agent's judgment would be the least
+trustworthy thing on it. A test asserts each described value *is* its module constant.
 
 ---
 
@@ -215,9 +272,32 @@ through a model.
 
 ## Verified behaviour
 
-**70 tests, 50 seconds.** With no model server: 54 pass, 16 skip — semantic scoring
-can't be faked meaningfully, so those tests decline to assert something weaker.
+**128 tests** — 106 backend (`pytest`, ~52s) and 22 frontend (`npm test`, ~1s).
 
-The golden test pins the *exact* set of ten questions the sample data should produce.
+With no model server reachable a subset of the backend tests skip rather than pass:
+semantic scoring can't be faked meaningfully, so they decline to assert something
+weaker instead of going quietly green.
+
+The golden test pins the *exact* set of eight first-pass questions the sample data
+should produce, and the three that follow once the email columns are known.
 Every defect in those files was planted to exercise one branch of the policy, so if a
 threshold drifts, it fails and names what changed.
+
+Beyond the golden run, the tests that carry the most weight:
+
+- **`test_policy.py`** — both sides of every threshold, plus the anti-drift test that
+  the described boundary equals the enforced one.
+- **`test_recipe.py`** — that a recipe round-trips through YAML, that replay restores
+  the answers, and that no record data leaks into it.
+- **`test_plan.py`** — that every persisted record appears in the dry run exactly once
+  (this caught a real bug: records were keyed on `(run_id, key)` alone, so two
+  un-merged halves of one person overwrote each other and the preview silently showed
+  fewer people than the pipeline produced), and that the payload shown is the payload
+  sent.
+- **`stream.test.ts`** — the SSE frame parser, including a frame split across chunk
+  boundaries. A naive per-chunk split drops that event silently, and the symptom is
+  the agent appearing to skip a step.
+
+The whole HTTP surface was also driven end to end — a full migration, three rounds of
+review, the push with its two retries and one rejection, retry, rollback refused
+without a reason, the dry run, and a recipe replay.

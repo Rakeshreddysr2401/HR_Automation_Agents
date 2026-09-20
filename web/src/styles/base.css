@@ -1,0 +1,127 @@
+/* Reset, global typography, the aurora backdrop, and the handful of animations
+   the app uses. Everything colour-bearing comes from tokens.css. */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--s-canvas);
+  color: var(--s-ink);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Theme flips shouldn't strobe. Colour only — never layout. */
+  transition: background var(--dur-med) var(--ease), color var(--dur-med) var(--ease);
+}
+
+button, input, textarea, select { font: inherit; color: inherit; }
+
+::selection { background: var(--s-brand-soft); color: var(--s-ink); }
+
+:focus-visible {
+  outline: 2px solid var(--s-brand);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-ligatures: none;
+  font-feature-settings: "tnum" 1;
+}
+
+/* --- the aurora -----------------------------------------------------------
+   Three soft radial washes fixed behind the whole app, tinted from the live
+   accent so it follows the accent picker. Drifts on transform only, so it
+   costs nothing and never repaints the content above it. */
+.aurora {
+  position: fixed;
+  inset: -25%;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(40% 46% at 16% 10%, var(--aurora-a) 0%, transparent 72%),
+    radial-gradient(46% 52% at 86% 18%, var(--aurora-b) 0%, transparent 72%),
+    radial-gradient(38% 42% at 62% 96%, var(--aurora-c) 0%, transparent 72%);
+  animation: aurora-drift 48s var(--ease) infinite alternate;
+}
+@keyframes aurora-drift {
+  from { transform: translate3d(-1.5%, -1%, 0) scale(1); }
+  to   { transform: translate3d(1.5%, 1.5%, 0) scale(1.06); }
+}
+
+/* --- scrollbars ---------------------------------------------------------- */
+* { scrollbar-width: thin; scrollbar-color: var(--s-line) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb {
+  background: var(--s-line);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--s-faint); background-clip: content-box; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* --- animations ---------------------------------------------------------- */
+@keyframes rise   { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+@keyframes fade   { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pop    { from { opacity: 0; transform: scale(0.97) translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes sweep  { to { background-position: 200% 0; } }
+@keyframes spin   { to { transform: rotate(360deg); } }
+@keyframes breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+.a-rise { animation: rise var(--dur-med) var(--ease) both; }
+.a-fade { animation: fade var(--dur-med) var(--ease) both; }
+.a-pop  { animation: pop var(--dur-med) var(--ease) both; }
+
+/* The agent is working: a light sweeping along the top of the live log. */
+.a-sweep {
+  background-image: linear-gradient(
+    90deg, transparent 0%, var(--s-brand) 45%, var(--s-brand) 55%, transparent 100%);
+  background-size: 200% 100%;
+  animation: sweep 1.4s linear infinite;
+}
+
+.a-spin { animation: spin 0.7s linear infinite; }
+.a-breathe { animation: breathe 1.6s var(--ease) infinite; }
+
+/* --- glass --------------------------------------------------------------- */
+/* Used only on layers that float over content (header, sticky bars, palette),
+   never on a card in a list — dozens of blurred layers is how a console starts
+   dropping frames. */
+.glass {
+  background: color-mix(in oklab, var(--s-surface) 82%, transparent);
+  backdrop-filter: saturate(1.4) blur(14px);
+  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+}
+
+kbd {
+  display: inline-flex;
+  align-items: center;
+  min-width: 1.25em;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.5;
+  padding: 1px 4px;
+  border-radius: 4px;
+  border: 1px solid var(--s-line);
+  border-bottom-width: 2px;
+  background: var(--s-raised);
+  color: var(--s-muted);
+}
+
+/* Tabular figures everywhere a number is compared against another number. */
+.tnum { font-variant-numeric: tabular-nums; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

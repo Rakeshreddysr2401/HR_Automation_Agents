@@ -35,7 +35,8 @@ from app.models import (
     EscalationType,
     MappingCandidate,
 )
-from app.schema import TargetField, TargetSchema
+from app.agents.cleanser import canonicalise_enum
+from app.schema import FORMATS, TargetField, TargetSchema
 
 Emit = Callable[[str], None]
 
@@ -61,6 +62,16 @@ _ALIAS_SPLIT = re.compile(r"also called\s*(.+?)(?:\.|$)", re.IGNORECASE)
 _NAME_HINT = re.compile(r"\b(name|employee|staff|person)\b", re.IGNORECASE)
 
 
+def _named_as(column: str, field: TargetField) -> bool:
+    """Is the column literally named the field, or one of its declared aliases?
+
+    "Also called employee number" in the schema is the field being given that
+    name outright, and a column called "Employee Number" has then told us what
+    it is as plainly as one called "employee_code" would.
+    """
+    return any(policy.names_match_exactly(column, term) for term in _alias_terms(field))
+
+
 def _alias_terms(field: TargetField) -> list[str]:
     """Field name plus the aliases its description spells out."""
     terms = [field.name.replace("_", " ")]
@@ -83,6 +94,34 @@ def _expected_column_type(field: TargetField) -> str:
 
 
 def _structural_adjustment(profile: ColumnProfile, field: TargetField) -> float:
+    # A declared format is the strongest structural evidence there is, and it
+    # is checked on the raw samples in-process - the values never reach a model.
+    pattern = FORMATS.get(field.format or "")
+    values = [v.strip() for v in profile.raw_samples if v and v.strip()]
+    if pattern is not None and values:
+        if not any(pattern.match(v.upper()) for v in values):
+            return -policy.FORMAT_MISMATCH_PENALTY
+
+    # One value per person: a column with a few repeated values is a category,
+    # not an identifier, whatever its name says.
+    if field.unique and profile.non_null:
+        if profile.cardinality / profile.non_null < policy.UNIQUE_FIELD_MIN_DISTINCT_RATIO:
+            return -policy.FORMAT_MISMATCH_PENALTY
+
+    if field.enum and values:
+        numeric_vocabulary = any(option.strip().isdigit() for option in field.enum)
+        if profile.inferred_type in ("number", "id") and not numeric_vocabulary:
+            return -policy.FORMAT_MISMATCH_PENALTY
+        # Values already in the vocabulary (or its standard abbreviations) are
+        # the content agreeing with the field - the same evidence a matching
+        # date or email shape gives, and worth the same bonus.
+        recognised = sum(
+            1 for v in values if canonicalise_enum(v, field)[2] is Disposition.AUTO
+            and canonicalise_enum(v, field)[0] is not None
+        )
+        if recognised / len(values) >= 0.5:
+            return TYPE_BONUS
+
     expected = _expected_column_type(field)
     allowed = TYPE_COMPATIBILITY.get(expected, {"string"})
     if profile.inferred_type in allowed:
@@ -119,9 +158,10 @@ def _column_embed_text(profile: ColumnProfile) -> str:
 
 def _looks_like_full_name(profile: ColumnProfile) -> bool:
     """A single column holding "Aarav Sharma" feeds two target fields."""
-    if not _NAME_HINT.search(profile.column):
+    header = profile.column.replace("_", " ")
+    if not _NAME_HINT.search(header):
         return False
-    if re.search(r"\b(first|last|sur|given|middle|father|mother)\b", profile.column, re.I):
+    if re.search(r"\b(first|last|sur|given|middle|father|mother)\b", header, re.I):
         return False
     samples = [s.strip() for s in profile.raw_samples if s.strip()]
     if not samples:
@@ -239,12 +279,18 @@ def map_columns(
     for profile in profiles:
         by_file[profile.source_file].append(profile)
 
+    # Two exports from the same system share column names. "State" in one file
+    # is the same question as "State" in the other, so a consultant's answer to
+    # either applies to both - here, in this pass, not only via memory next run.
+    decisions = _share_answers_across_files(decisions, profiles)
+
     for source_file, file_profiles in by_file.items():
         file_mappings, file_escalations = _map_one_file(
             source_file, file_profiles, schema, field_vectors, run_id, memory, decisions, emit
         )
         mappings.extend(file_mappings)
         escalations.extend(file_escalations)
+
 
     auto = sum(1 for m in mappings if m.disposition is Disposition.AUTO)
     flagged = sum(1 for m in mappings if m.disposition is Disposition.FLAGGED)
@@ -402,7 +448,11 @@ def _map_one_file(
             runner_up = available[1].score if len(available) > 1 else 0.0
             margin = top.score - runner_up
             lexical_best = max(c.fuzzy_score for c in scored[profile.column])
-            if policy.classify_mapping(top.score, runner_up, lexical_best) is not Disposition.AUTO:
+            exact = _named_as(profile.column, schema.field(top.target_field))
+            if (
+                policy.classify_mapping(top.score, runner_up, lexical_best, exact)
+                is not Disposition.AUTO
+            ):
                 continue
             if best is None or top.score > best[0]:
                 best = (top.score, margin, profile.column, top.target_field)
@@ -500,7 +550,12 @@ def _map_one_file(
         runner_up_score = runner_up.score if runner_up else 0.0
         margin = top.score - runner_up_score
         lexical_best = max(c.fuzzy_score for c in scored[profile.column])
-        disposition = policy.classify_mapping(top.score, runner_up_score, lexical_best)
+        disposition = policy.classify_mapping(
+            top.score,
+            runner_up_score,
+            lexical_best,
+            _named_as(profile.column, schema.field(top.target_field)),
+        )
 
         if disposition is Disposition.IGNORED:
             mappings.append(
@@ -521,12 +576,19 @@ def _map_one_file(
             )
             continue
 
+        contested = bool(runner_up) and margin < policy.MAPPING_MARGIN_MIN
         why = (
             f"scores {top.score:.2f} for {top.target_field} against "
             f"{runner_up_score:.2f} for {runner_up.target_field} - too close to call"
-            if runner_up and margin < policy.MAPPING_MARGIN_MIN
-            else f"the best available match only reaches {top.score:.2f}"
+            if contested
+            else (
+                f"looks most like {top.target_field}, but only at {top.score:.2f} - "
+                f"below the {policy.MAPPING_AUTO_MIN:.2f} needed to apply it unasked"
+            )
         )
+        # Offer only candidates a human could plausibly pick. A 0.18 score is
+        # not an option, it is noise that makes the real choice harder to see.
+        plausible = [c for c in candidates[:4] if c.score >= policy.MAPPING_IGNORE_MAX] or candidates[:1]
         emit(f"Ambiguous column '{profile.column}' in {source_file} - asking")
         escalations.append(
             Escalation(
@@ -552,7 +614,7 @@ def _map_one_file(
                         "label": c.target_field,
                         "detail": f"score {c.score:.2f}",
                     }
-                    for c in candidates[:4]
+                    for c in plausible
                 ]
                 + [
                     {
@@ -578,6 +640,23 @@ def _map_one_file(
         )
 
     return mappings, escalations
+
+
+def _share_answers_across_files(
+    decisions: dict[str, Any], profiles: list[ColumnProfile]
+) -> dict[str, Any]:
+    keyed: dict[str, list[ColumnProfile]] = defaultdict(list)
+    for profile in profiles:
+        keyed[_memory_key(profile)].append(profile)
+    shared = dict(decisions)
+    for subject, answer in decisions.items():
+        if not subject.startswith("map:"):
+            continue
+        _, source_file, column = subject.split(":", 2)
+        key = column.strip().lower().replace("_", " ")
+        for twin in keyed.get(key, []):
+            shared.setdefault(f"map:{twin.source_file}:{twin.column}", answer)
+    return shared
 
 
 def _score_for(candidates: list[MappingCandidate], field_name: str) -> float:

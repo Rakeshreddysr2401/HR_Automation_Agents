@@ -73,7 +73,19 @@ def analyse(state: MigrationState) -> dict[str, Any]:
         emit=_progress,
     )
 
+    # Records already in the target stay "success", and records a human rolled
+    # back stay "rolled_back": re-running the analysis to answer an unrelated
+    # question must not quietly re-push something a person just removed.
+    existing = {r["key"]: r for r in store.list_records(run_id)}
+    for r in result.records:
+        if r.key in existing:
+            prev_status = existing[r.key].get("push_status")
+            if prev_status in ("success", "rolled_back"):
+                r.push_status = prev_status
+                r.push_detail = existing[r.key].get("push_detail", "")
+
     store.replace_escalations(run_id, result.escalations)
+    store.replace_mappings(run_id, result.mappings)
     store.replace_records(run_id, result.records)
     store.replace_audit(run_id, result.audit)
     store.note_memory_used(
@@ -122,7 +134,15 @@ def gate(state: MigrationState) -> dict[str, Any]:
         }
     )
 
-    decisions = (answers or {}).get("decisions", answers) or {}
+    decisions = dict((answers or {}).get("decisions", answers) or {})
+    # "Leave them all out" on a batch of rejections is one answer that stands
+    # for every record it covers; expand it here so the validator's per-record
+    # skip path applies unchanged.
+    if decisions.get("batch:push_rejected") == "skip":
+        for esc in escalations:
+            if esc["subject"] == "batch:push_rejected":
+                for key in esc.get("affected_records") or []:
+                    decisions.setdefault(f"push:{key}", "skip")
     for subject, answer in decisions.items():
         store.save_decision(run_id, subject, answer)
         store.mark_resolved(run_id, subject, answer)
@@ -141,15 +161,43 @@ def push(state: MigrationState) -> dict[str, Any]:
     ready = [r for r in records if r.get("ready") and r.get("push_status") == "pending"]
 
     _progress(f"Pushing {len(ready)} record(s) to the target system")
-    outcome = loader.push_records(run_id, ready, emit=_progress)
-    store.set_run_status(run_id, "complete", {**(state.get("summary") or {}), **outcome})
-    return {"pushed": True, "summary": {**(state.get("summary") or {}), **outcome}}
+    outcome = loader.push_records(
+        run_id, ready, emit=_progress, decisions=dict(state.get("decisions") or {})
+    )
+    # The outcome counts this pass only. The summary a person reads is the run's
+    # state as a whole - resolving one rejection must not reset "loaded" to 0.
+    after = store.list_records(run_id)
+    totals = {
+        "pushed": sum(1 for r in after if r.get("push_status") == "success"),
+        "push_failed": sum(1 for r in after if r.get("push_status") == "failed"),
+        "push_rejected": sum(1 for r in after if r.get("push_status") == "rejected"),
+    }
+    summary = {**(state.get("summary") or {}), **outcome, **totals}
+
+    rejected_count = outcome.get("push_rejected", 0)
+    if rejected_count > 0:
+        store.set_run_status(run_id, "awaiting_review", summary)
+        open_subjects = [e["subject"] for e in store.list_escalations(run_id, status="open")]
+        return {
+            "pushed": False,
+            "open_subjects": open_subjects,
+            "summary": summary,
+        }
+
+    store.set_run_status(run_id, "complete", summary)
+    return {"pushed": True, "open_subjects": [], "summary": summary}
 
 
 def _after_gate(state: MigrationState) -> str:
     if state.get("aborted"):
         return END
     return "analyse" if state.get("open_subjects") else "push"
+
+
+def _after_push(state: MigrationState) -> str:
+    if state.get("open_subjects"):
+        return "gate"
+    return END
 
 
 def build_graph(checkpointer=None):
@@ -161,7 +209,7 @@ def build_graph(checkpointer=None):
     builder.add_edge(START, "analyse")
     builder.add_edge("analyse", "gate")
     builder.add_conditional_edges("gate", _after_gate, {"analyse": "analyse", "push": "push", END: END})
-    builder.add_edge("push", END)
+    builder.add_conditional_edges("push", _after_push, {"gate": "gate", END: END})
 
     return builder.compile(checkpointer=checkpointer)
 
