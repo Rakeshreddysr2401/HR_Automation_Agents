@@ -165,6 +165,7 @@ export interface Plan {
   entity: string;
   will_send: PlanRecord[];
   held_back: PlanRecord[];
+  already_sent: PlanRecord[];
   totals: {
     will_send: number;
     held_back: number;

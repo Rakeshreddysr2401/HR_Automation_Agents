@@ -26,7 +26,7 @@ export function RunPanel() {
   return (
     <div className="grid gap-3 lg:grid-cols-[330px_1fr]">
       <div className="space-y-3">
-        <Panel title="Source files" subtitle="Upload CSV or Excel exports from your legacy HRIS or payroll systems" icon={<IconUpload />}>
+        <Panel title="Source files" subtitle="Drop the client's CSV or Excel exports here — several files for the same employees is fine" icon={<IconUpload />}>
           <div className="space-y-3">
             <div
               onDragOver={(event) => {
@@ -113,7 +113,7 @@ export function RunPanel() {
             previous migration decided and this one starts knowing it. */}
         <Panel
           title="Replay Saved Rules (Recipe)"
-          subtitle="Optional — load decisions and mappings from a previous run"
+          subtitle="Optional — paste a recipe exported from Preview and this run starts already knowing the answers"
           icon={<IconSpark />}
           right={
             <Button size="sm" variant="ghost" onClick={() => setShowRecipe(!showRecipe)}>
@@ -147,11 +147,11 @@ export function RunPanel() {
       </div>
 
       <Panel
-        title="Live Migration Activity"
+        title="What the agent is doing (live)"
         subtitle={
           summary.elapsed_seconds
             ? `Completed in ${summary.elapsed_seconds}s`
-            : "Real-time transformation, deduplication, and validation log"
+            : "Each line is one decision it made, or one thing it chose to ask you"
         }
         icon={<IconPlay />}
         flush

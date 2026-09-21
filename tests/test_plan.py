@@ -141,8 +141,11 @@ class TestAfterPush:
         after = plan.build(run_id, store)
         assert key not in [r["key"] for r in after["will_send"]]
         assert after["totals"]["already_loaded"] >= 1
-        held = next(r for r in after["held_back"] if r["key"] == key)
-        assert held["reason_held"] == "already loaded"
+        # Loaded is not "held back": a consultant reading "held" expects a
+        # problem. It has its own list.
+        assert key not in [r["key"] for r in after["held_back"]]
+        sent = next(r for r in after["already_sent"] if r["key"] == key)
+        assert sent["reason_held"] == "loaded into the HRMS"
 
     def test_a_transient_failure_stays_retryable(self, analysed):
         run_id, _, store = analysed

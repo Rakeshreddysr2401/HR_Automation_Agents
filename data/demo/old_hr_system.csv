@@ -1,0 +1,10 @@
+Emp No,Full Name,Official Email,Mail ID,DOB,Date of Joining,Dept,Designation,Reports To,Mobile,Status,Gender,Location,PAN,Exit Date
+E1001,  aarav  SHARMA ,AARAV.SHARMA@ACME.IN,aarav88@gmail.com,15/03/1988,02/01/2019,engineering  ,Senior Engineer,priya.nair@acme.in,+91 98765 43210,Active,M,Bengaluru,ABCDE1234F,
+E1002,Priya Nair,priya.nair@acme.in,priya.nair@acme.in,22/07/1982,14/06/2015,Engineering,Engineering Manager,rohan.mehta@acme.in,9876500002,Active,F,Bengaluru,FGHIJ5678K,
+E1003,Rohan Mehta,rohan.mehta@acme.in,rohan.m@gmail.com,30/11/1979,01/04/2012,Finance,Chief Financial Officer,priya.nair@acme.in,9876500003,Active,M,Mumbai,KLMNO9012P,
+E1004,Diya Patel,diya.patel@acme.in,diya.patel@acme.in,18/09/1991,20/08/2021,Engg,Software Engineer,priya.nair@acme.in,9876500004,Active,F,Pune,PQRST3456U,
+E1005,Vikram Rao,vikram.rao@acme.in,vikram.rao@acme.in,05/05/1985,17/02/2016,Sales,Account Executive,rohan.mehta@acme.in,9876500005,Inactive,M,Hyderabad,UVWXY7890Z,
+E1006,Meera Joshi,meera.joshi@acme.in,meera.j@gmail.com,25/12/1993,23/09/2022,Operations,Operations Executive,rohan.mehta@acme.in,9876500006,Active,F,Pune,MEERA123,
+E1007,Sana Qureshi,sana.qureshi@acme.in,sana.qureshi@acme.in,25/04/1990,16/03/2020,Marketing,Brand Manager,rohan.mehta@acme.in,9876500007,Active,F,Mumbai,ZABCD1122E,
+E1021,Arjun Iyer,arjun.iyer@acme.in,arjun.iyer@acme.in,14/08/1987,28/10/2018,Finance,Financial Analyst,former.manager@acme.in,9876500021,Active,M,Mumbai,EFGHI3344J,
+E0910,Rakesh Reddy,rakesh.r@acme.in,rakesh.r@acme.in,14/08/1982,03/02/2014,Engineering,Senior Engineer,priya.nair@acme.in,9876500910,Inactive,M,Hyderabad,RAKES1110S,2019-06-30

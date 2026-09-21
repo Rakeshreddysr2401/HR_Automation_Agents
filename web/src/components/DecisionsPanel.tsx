@@ -58,23 +58,23 @@ export function DecisionsPanel() {
 
   return (
     <div className="space-y-3">
-      <Panel icon={<IconList />} title="Autonomy Breakdown (Agent vs. Human)">
+      <Panel icon={<IconList />} title="Who decided what (agent vs. you)">
         <div className="flex flex-wrap items-center gap-6">
           <Stat
-            label="Autonomous Decisions"
+            label="Decided by the agent"
             value={byAgent.length}
             tone="auto"
             hint="Changes applied automatically by deterministic rules"
           />
           <Stat
-            label="Consultant Decisions"
+            label="Decided by you"
             value={byHuman.length}
             tone="brand"
             hint="Changes that came from human answers in the review queue"
           />
-          <Stat label="Auto-Mapped Columns" value={summary.columns_auto ?? 0} tone="auto" />
+          <Stat label="Columns mapped alone" value={summary.columns_auto ?? 0} tone="auto" />
           <Stat
-            label="Ignored Columns"
+            label="Columns left behind (no home in schema)"
             value={summary.columns_ignored ?? 0}
             hint="Confirmed unneeded columns — safely excluded from schema"
           />
@@ -86,8 +86,8 @@ export function DecisionsPanel() {
       </Panel>
 
       <Panel
-        title="Autonomous Actions & Fixes"
-        subtitle={`${byAgent.length} changes, grouped by kind`}
+        title="Rules and fixes the agent applied without asking"
+        subtitle={`${byAgent.length} changes, grouped by kind — each with the evidence it acted on`}
         icon={<IconList />}
         flush
       >
@@ -137,7 +137,7 @@ export function DecisionsPanel() {
       </Panel>
 
       <Panel
-        title="What it learned from you"
+        title="Remembered for next time"
         subtitle="answers kept for the next file and the next client, so the same question is never asked twice"
         icon={<IconBrain />}
         flush={memory.length > 0}

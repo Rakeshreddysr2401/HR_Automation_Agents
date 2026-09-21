@@ -5,10 +5,10 @@ import { IconArrow, IconMap, IconSearch } from "./icons";
 import type { Mapping } from "../types";
 
 const DISPOSITION: Record<string, { tone: "auto" | "flag" | "ask" | "neutral"; label: string }> = {
-  auto: { tone: "auto", label: "Auto-Mapped" },
-  flagged: { tone: "flag", label: "Inferred (Review)" },
-  escalated: { tone: "ask", label: "Needs Decision" },
-  ignored: { tone: "neutral", label: "Ignored" },
+  auto: { tone: "auto", label: "Mapped alone" },
+  flagged: { tone: "flag", label: "Inferred (applied, flagged)" },
+  escalated: { tone: "ask", label: "Asked you" },
+  ignored: { tone: "neutral", label: "Left behind" },
 };
 
 const PROVENANCE: Record<string, string> = {
@@ -75,7 +75,7 @@ export function MappingPanel() {
     <div className="space-y-3">
       <Panel
         title={`Column mapping (${mappings.length})`}
-        subtitle="every source column, where it went, and on what evidence"
+        subtitle="Every source column, the target field it became, and the evidence for it"
         icon={<IconMap />}
         flush
         right={
@@ -93,10 +93,10 @@ export function MappingPanel() {
               onChange={setFilter}
               options={[
                 { id: "all", label: "All" },
-                { id: "auto", label: `Auto-Mapped (${counts.auto})` },
+                { id: "auto", label: `Mapped alone (${counts.auto})` },
                 { id: "flagged", label: `Inferred (${counts.flagged})` },
-                { id: "escalated", label: `Needs Decision (${counts.escalated})` },
-                { id: "ignored", label: `Ignored (${counts.ignored})` },
+                { id: "escalated", label: `Asked you (${counts.escalated})` },
+                { id: "ignored", label: `Left behind (${counts.ignored})` },
               ]}
             />
           </div>
@@ -122,8 +122,8 @@ export function MappingPanel() {
 
       {unfilled.length > 0 && (
         <Panel
-          title={`Target fields nothing reached (${unfilled.length})`}
-          subtitle="gaps in the client's export, not failures of the mapping"
+          title={`Target fields with no source column (${unfilled.length})`}
+          subtitle="The client's files simply do not carry these — a gap in the export, not a mapping failure"
           icon={<IconArrow />}
         >
           <div className="flex flex-wrap gap-1.5">

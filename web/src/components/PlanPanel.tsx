@@ -15,7 +15,7 @@ import type { PlanRecord } from "../types";
  */
 export function PlanPanel() {
   const { plan, loadPlan, runId, summary, toast } = useStore();
-  const [view, setView] = useState<"send" | "held">("send");
+  const [view, setView] = useState<"send" | "held" | "sent">("send");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [recipe, setRecipe] = useState<string | null>(null);
@@ -29,7 +29,7 @@ export function PlanPanel() {
 
   if (!runId) {
     return (
-      <Panel title="Pre-Flight Preview" icon={<IconSpark />}>
+      <Panel title="Preview — what will be sent" icon={<IconSpark />}>
         <Empty icon={<IconSpark />}>
           Run a migration first. This view displays the final payload for each employee record
           and every automatic fix applied before sending to the destination HRMS.
@@ -38,7 +38,8 @@ export function PlanPanel() {
     );
   }
 
-  const rows = (view === "send" ? plan?.will_send : plan?.held_back) ?? [];
+  const rows =
+    (view === "send" ? plan?.will_send : view === "held" ? plan?.held_back : plan?.already_sent) ?? [];
   const visible = rows.filter((record) => {
     if (!query) return true;
     const hay = `${record.key} ${record.name} ${record.employee_code ?? ""}`.toLowerCase();
@@ -75,8 +76,8 @@ export function PlanPanel() {
   return (
     <div className="space-y-3">
       <Panel
-        title="Pre-Flight Record Preview"
-        subtitle={`Verified records staged for destination HRMS (${plan?.entity ?? "employee"} entities)`}
+        title="Preview — what will be sent (nothing has been sent yet)"
+        subtitle="Each employee exactly as the HRMS will receive it, plus every value the agent fixed without asking"
         icon={<IconSpark />}
         right={
           <Button
@@ -92,20 +93,20 @@ export function PlanPanel() {
         }
       >
         <div className="flex flex-wrap items-center gap-6">
-          <Stat label="Ready to Send" value={plan?.totals.will_send ?? 0} tone="brand" />
-          <Stat label="Held (Awaiting Review)" value={plan?.totals.held_back ?? 0} tone="ask" />
+          <Stat label="Ready to send (passed every check)" value={plan?.totals.will_send ?? 0} tone="brand" />
+          <Stat label="Held back (waiting on a question)" value={plan?.totals.held_back ?? 0} tone="ask" />
           <Stat
-            label="Auto-Repaired Values"
+            label="Values fixed automatically"
             value={plan?.totals.fields_changed ?? 0}
             tone="flag"
             hint="Values automatically corrected (e.g. phone formats, dates, trimmed spaces)."
           />
           <Stat
-            label="Records with Fixes"
+            label="Employees with a fix"
             value={plan?.totals.records_with_changes ?? 0}
             tone="flag"
           />
-          <Stat label="Already Migrated" value={plan?.totals.already_loaded ?? 0} tone="auto" />
+          <Stat label="Already in HRMS" value={plan?.totals.already_loaded ?? 0} tone="auto" />
           {summary.elapsed_seconds != null && (
             <Stat label="Processing Time" value={`${summary.elapsed_seconds}s`} />
           )}
@@ -113,7 +114,7 @@ export function PlanPanel() {
       </Panel>
 
       <Panel
-        title="Employee Records"
+        title="Employees — click a row to see the record and its fixes"
         icon={<IconSpark />}
         flush
         right={
@@ -130,8 +131,9 @@ export function PlanPanel() {
               value={view}
               onChange={setView}
               options={[
-                { id: "send", label: `Ready (${plan?.totals.will_send ?? 0})` },
-                { id: "held", label: `Held (${plan?.totals.held_back ?? 0})` },
+                { id: "send", label: `Ready to send (${plan?.totals.will_send ?? 0})` },
+                { id: "held", label: `Held back (${plan?.totals.held_back ?? 0})` },
+                { id: "sent", label: `Already sent (${plan?.already_sent.length ?? 0})` },
               ]}
             />
           </div>
@@ -144,13 +146,17 @@ export function PlanPanel() {
         ) : visible.length === 0 ? (
           <Empty>
             {view === "send"
-              ? "Nothing is ready to send yet — answer the open questions in the Review tab first."
-              : "No records are currently held back."}
+              ? plan?.already_sent.length
+                ? "Everything has been sent — see the Already sent list, or the Records tab for results."
+                : "Nothing is ready to send yet — answer the open questions in the Review tab first."
+              : view === "held"
+                ? "No records are currently held back."
+                : "Nothing has been sent yet."}
           </Empty>
         ) : (
           <ul className="divide-y divide-line-soft">
             {visible.map((record) => (
-              <PlanRow key={`${record.key}-${record.sources.join()}`} record={record} held={view === "held"} />
+              <PlanRow key={`${record.key}-${record.sources.join()}`} record={record} held={view !== "send"} />
             ))}
           </ul>
         )}
@@ -159,8 +165,8 @@ export function PlanPanel() {
       {/* The recipe. The productisation story made concrete: this run's
           knowledge as a file the next migration can start from. */}
       <Panel
-        title="Migration Recipe (Automate Future Migrations)"
-        subtitle="Export confirmed rules and decisions to run similar future exports 100% hands-free"
+        title="Recipe — reuse these answers on the next migration"
+        subtitle="A text file of every rule and answer from this run (no employee data). Paste it into Run next time and it will not ask again."
         icon={<IconDownload />}
         right={
           <div className="flex items-center gap-2">
@@ -218,12 +224,12 @@ function PlanRow({ record, held }: { record: PlanRecord; held: boolean }) {
         )}
         {record.changes.length > 0 && (
           <Badge tone="flag">
-            {record.changes.length} edit{record.changes.length === 1 ? "" : "s"}
+            {record.changes.length} fix{record.changes.length === 1 ? "" : "es"}
           </Badge>
         )}
         {record.pii_fields.length > 0 && (
           <Badge tone="neutral" title={`Masked on screen: ${record.pii_fields.join(", ")}`}>
-            {record.pii_fields.length} PII
+            {record.pii_fields.length} masked (PII)
           </Badge>
         )}
         <span className="ml-auto shrink-0">
@@ -239,7 +245,7 @@ function PlanRow({ record, held }: { record: PlanRecord; held: boolean }) {
         <div className="a-fade grid gap-4 border-t border-line-soft bg-sunken/60 px-[var(--panel-pad)] py-3 lg:grid-cols-2">
           <div>
             <div className="mb-1.5 text-[var(--text-xs)] tracking-wide text-faint uppercase">
-              Payload the target will receive
+              Final record — exactly what the HRMS receives
             </div>
             <dl className="space-y-0.5">
               {Object.entries(record.payload).map(([field, value]) => {
@@ -273,11 +279,11 @@ function PlanRow({ record, held }: { record: PlanRecord; held: boolean }) {
 
           <div>
             <div className="mb-1.5 text-[var(--text-xs)] tracking-wide text-faint uppercase">
-              What the agent changed without asking
+              Fixed automatically (before → after, and why)
             </div>
             {record.changes.length === 0 ? (
               <p className="text-[var(--text-sm)] text-faint">
-                Nothing — this record arrived clean.
+                Nothing — this record arrived clean and was sent as-is.
               </p>
             ) : (
               <ul className="space-y-2">
@@ -285,7 +291,7 @@ function PlanRow({ record, held }: { record: PlanRecord; held: boolean }) {
                   <li key={index} className="text-[var(--text-sm)]">
                     <div className="flex items-center gap-2">
                       <Badge tone={change.disposition === "flagged" ? "flag" : "auto"}>
-                        {change.disposition === "flagged" ? "inferred" : "automatic"}
+                        {change.disposition === "flagged" ? "inferred (flagged for you)" : "auto-fixed"}
                       </Badge>
                       <span className="text-muted">{change.what}</span>
                     </div>
@@ -302,7 +308,7 @@ function PlanRow({ record, held }: { record: PlanRecord; held: boolean }) {
             {record.errors.length > 0 && (
               <div className="mt-3">
                 <div className="mb-1 text-[var(--text-xs)] tracking-wide text-faint uppercase">
-                  Why it cannot go
+                  Why it is held back
                 </div>
                 <ul className="space-y-0.5">
                   {record.errors.map((error, index) => (

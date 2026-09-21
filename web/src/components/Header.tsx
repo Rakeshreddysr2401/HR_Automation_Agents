@@ -17,14 +17,14 @@ import {
 } from "./icons";
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode; hint: string }[] = [
-  { id: "run", label: "Run", icon: <IconPlay />, hint: "Live migration progress and file upload" },
-  { id: "queue", label: "Review", icon: <IconQuestion />, hint: "Questions requiring your decision" },
-  { id: "mapping", label: "Mapping", icon: <IconMap />, hint: "Source columns matched to target schema" },
-  { id: "plan", label: "Preview", icon: <IconSpark />, hint: "Inspect clean records and auto-repaired fields before sending" },
-  { id: "records", label: "Records", icon: <IconTable />, hint: "Migration status, retry, and rollback per employee" },
-  { id: "decisions", label: "Decisions", icon: <IconList />, hint: "Rules and fixes applied automatically" },
-  { id: "audit", label: "Audit", icon: <IconClock />, hint: "Complete compliance log of every change" },
-  { id: "policy", label: "Rules", icon: <IconShield />, hint: "Decision rules and escalation thresholds" },
+  { id: "run", label: "Run", icon: <IconPlay />, hint: "Upload files and watch the agent work" },
+  { id: "queue", label: "Review", icon: <IconQuestion />, hint: "Questions the agent could not settle on its own" },
+  { id: "mapping", label: "Mapping", icon: <IconMap />, hint: "Which source column became which target field" },
+  { id: "plan", label: "Preview (before send)", icon: <IconSpark />, hint: "Every record exactly as it will be sent, with the fixes made automatically" },
+  { id: "records", label: "Records (after send)", icon: <IconTable />, hint: "What the HRMS accepted or refused; retry and roll back" },
+  { id: "decisions", label: "Auto decisions", icon: <IconList />, hint: "Rules the agent settled without asking, and why" },
+  { id: "audit", label: "Audit log", icon: <IconClock />, hint: "Every change: who made it, before, after, why" },
+  { id: "policy", label: "Rules", icon: <IconShield />, hint: "Where the line between deciding and asking is drawn" },
 ];
 
 const STATUS: Record<string, { label: string; tone: "auto" | "flag" | "ask" | "brand" | "neutral" }> = {
@@ -67,27 +67,27 @@ export function Header() {
 
           <div className="ml-auto flex items-center gap-4">
             <Stat
-              label="Auto-Mapped"
+              label="Columns mapped alone"
               value={`${mapped}/${summary.columns ?? 0}`}
               tone="auto"
               hint="Columns mapped automatically by the agent. Click to inspect."
               onClick={() => setTab("mapping")}
             />
             <Stat
-              label="Employees"
+              label="Employees (after merging)"
               value={summary.records ?? 0}
               hint="Distinct employees after reconciling files and resolving identities"
               onClick={() => setTab("records")}
             />
             <Stat
-              label="Needs Review"
+              label="Questions for you"
               value={escalations.length}
               tone={escalations.length ? "ask" : "auto"}
               hint="Questions requiring human decision"
               onClick={() => setTab("queue")}
             />
             <Stat
-              label="Migrated"
+              label="Loaded into HRMS"
               value={summary.pushed ?? 0}
               tone="brand"
               hint="Records accepted by the target HRMS"

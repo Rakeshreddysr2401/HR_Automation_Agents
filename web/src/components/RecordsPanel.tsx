@@ -14,12 +14,22 @@ const STATUS_TONE: Record<string, Tone> = {
 };
 
 const STATUS_HINT: Record<string, string> = {
-  success: "Successfully accepted and created in destination HRMS",
-  pending: "Validated and ready to be sent",
-  failed: "Transient network or timeout error (retryable)",
-  rejected: "Rejected by destination HRMS (e.g. duplicate employee code) — requires review",
-  rolled_back: "Rolled back from destination HRMS",
-  skipped: "Omitted from migration by consultant decision",
+  success: "Accepted and created in the HRMS",
+  pending: "Passed every check; will be sent once the review queue is empty",
+  failed: "Network timeout or server error — nothing wrong with the record, safe to retry",
+  rejected: "The HRMS said no for a business reason (e.g. employee code already exists) — see Review",
+  rolled_back: "Removed from the HRMS by you; tick it to push again",
+  skipped: "You chose not to migrate this record",
+};
+
+// Plain words on the badge; the technical status stays in the tooltip.
+const STATUS_LABEL: Record<string, string> = {
+  success: "loaded",
+  pending: "waiting to send",
+  failed: "failed (can retry)",
+  rejected: "rejected by HRMS",
+  rolled_back: "rolled back",
+  skipped: "skipped",
 };
 
 export function RecordsPanel() {
@@ -94,24 +104,24 @@ export function RecordsPanel() {
 
   return (
     <div className="space-y-3">
-      <Panel icon={<IconTable />} title="HRMS Integration Status">
+      <Panel icon={<IconTable />} title="Push results — what happened in the HRMS">
         <div className="flex flex-wrap items-center gap-6">
-          <Stat label="Total Employees" value={records.length} />
-          <Stat label="Migrated to HRMS" value={pushed.length} tone="auto" />
-          <Stat label="Temporary Failures" value={failed.length} tone="flag" />
-          <Stat label="HRMS Rejected (4xx)" value={rejected.length} tone="ask" />
-          <Stat label="Blocked by Questions" value={blocked.length} tone="ask" />
+          <Stat label="Employees (after merging)" value={records.length} />
+          <Stat label="Loaded into HRMS" value={pushed.length} tone="auto" />
+          <Stat label="Temporary failures (can retry)" value={failed.length} tone="flag" />
+          <Stat label="Rejected by HRMS (needs your decision)" value={rejected.length} tone="ask" />
+          <Stat label="Held by open questions" value={blocked.length} tone="ask" />
           {summary.push_rejected != null && summary.push_rejected > 0 && (
             <p className="max-w-sm text-[var(--text-xs)] leading-relaxed text-faint">
-              A rejection is escalated to a human rather than retried forever: HTTP 4xx indicates a
-              business rule conflict (such as an existing employee code) that needs adjudication.
+              A rejection is a business answer from the HRMS ("this employee code already exists"),
+              so retrying would get the same answer. It is sent back to Review for you to decide.
             </p>
           )}
         </div>
       </Panel>
 
       <Panel
-        title={`Records (${visible.length} of ${records.length})`}
+        title={`Employees (${visible.length} of ${records.length}) — tick loaded rows to roll back`}
         icon={<IconTable />}
         flush
         right={
@@ -129,9 +139,9 @@ export function RecordsPanel() {
               onChange={setStatus}
               options={[
                 { id: "all", label: "All" },
-                { id: "success", label: `Loaded ${pushed.length}` },
-                { id: "failed", label: `Failed ${failed.length}` },
-                { id: "pending", label: "Pending" },
+                { id: "success", label: `Loaded (${pushed.length})` },
+                { id: "failed", label: `Failed (${failed.length})` },
+                { id: "pending", label: "Waiting" },
                 { id: "rolled_back", label: "Rolled back" },
               ]}
             />
@@ -148,12 +158,12 @@ export function RecordsPanel() {
                   }
                 }}
               >
-                {busy ? <Spinner /> : <IconRefresh />} Retry {failed.length}
+                {busy ? <Spinner /> : <IconRefresh />} Retry {failed.length} failed
               </Button>
             )}
             {selectedPushed.length > 0 && (
               <Button size="sm" variant="danger" disabled={busy} onClick={doRollback}>
-                <IconUndo /> Roll back {selectedPushed.length}
+                <IconUndo /> Roll back {selectedPushed.length} (remove from HRMS)
               </Button>
             )}
             {selectedRolledBack.length > 0 && (
@@ -172,9 +182,9 @@ export function RecordsPanel() {
                 <th className="px-3 py-2 font-medium">Code</th>
                 <th className="px-3 py-2 font-medium">Name</th>
                 <th className="px-3 py-2 font-medium">Department</th>
-                <th className="px-3 py-2 font-medium">Joined</th>
-                <th className="px-3 py-2 font-medium">From</th>
-                <th className="px-3 py-2 font-medium">Status</th>
+                <th className="px-3 py-2 font-medium">Joining date</th>
+                <th className="px-3 py-2 font-medium">Source files</th>
+                <th className="px-3 py-2 font-medium">Result in HRMS</th>
               </tr>
             </thead>
             <tbody>
@@ -219,10 +229,10 @@ export function RecordsPanel() {
                         tone={STATUS_TONE[record.push_status] ?? "neutral"}
                         title={STATUS_HINT[record.push_status]}
                       >
-                        {record.push_status.replace(/_/g, " ")}
+                        {STATUS_LABEL[record.push_status] ?? record.push_status.replace(/_/g, " ")}
                       </Badge>
                       {record.blocked_by.length > 0 && (
-                        <Badge tone="ask">blocked</Badge>
+                        <Badge tone="ask">held by a question</Badge>
                       )}
                       {record.push_detail && (
                         <span className="text-[var(--text-xs)] text-faint">

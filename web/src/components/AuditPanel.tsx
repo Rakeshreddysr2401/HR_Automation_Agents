@@ -66,7 +66,7 @@ export function AuditPanel() {
   return (
     <Panel
       title={`Audit trail (${rows.length} of ${audit.length})`}
-      subtitle="every change, who made it, and why — PII masked at write time"
+      subtitle="Every change to every record: who made it, the value before and after, and why. Personal identifiers are masked."
       icon={<IconClock />}
       flush
       right={
@@ -102,9 +102,9 @@ export function AuditPanel() {
               <th className="px-3 py-2 font-medium">When</th>
               <th className="px-3 py-2 font-medium">Who</th>
               <th className="px-3 py-2 font-medium">Action</th>
-              <th className="px-3 py-2 font-medium">Entity</th>
-              <th className="px-3 py-2 font-medium">Change</th>
-              <th className="px-3 py-2 font-medium">Why</th>
+              <th className="px-3 py-2 font-medium">Record / column</th>
+              <th className="px-3 py-2 font-medium">Before → after</th>
+              <th className="px-3 py-2 font-medium">Reason</th>
             </tr>
           </thead>
           <tbody>

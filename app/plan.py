@@ -47,10 +47,14 @@ def build(run_id: str, store: Store, schema: TargetSchema | None = None) -> dict
 
     will_send: list[dict[str, Any]] = []
     held: list[dict[str, Any]] = []
+    sent: list[dict[str, Any]] = []
 
     for record in records:
         entry = _describe(record, edits, origin, pii, schema)
-        if record.get("ready") and record.get("push_status") in ("pending", "failed"):
+        if record.get("push_status") in ("success", "skipped", "rolled_back"):
+            # Settled one way or the other: no longer "before sending".
+            sent.append(entry)
+        elif record.get("ready") and record.get("push_status") in ("pending", "failed"):
             will_send.append(entry)
         else:
             held.append(entry)
@@ -61,11 +65,12 @@ def build(run_id: str, store: Store, schema: TargetSchema | None = None) -> dict
         "entity": schema.entity,
         "will_send": will_send,
         "held_back": held,
+        "already_sent": sent,
         "totals": {
             "will_send": len(will_send),
             "held_back": len(held),
-            "fields_changed": changed,
-            "records_with_changes": sum(1 for r in will_send if r["changes"]),
+            "fields_changed": changed + sum(len(r["changes"]) for r in sent),
+            "records_with_changes": sum(1 for r in will_send + sent if r["changes"]),
             "already_loaded": sum(
                 1 for r in records if r.get("push_status") == "success"
             ),
@@ -165,8 +170,10 @@ def _describe(
 
 
 def _reason_held(record: dict[str, Any]) -> str:
-    if record.get("ready") and record.get("push_status") == "success":
-        return "already loaded"
+    if record.get("push_status") == "success":
+        return "loaded into the HRMS"
+    if record.get("push_status") == "rolled_back":
+        return "rolled back by you"
     if record.get("blocked_by"):
         return f"waiting on {len(record['blocked_by'])} open question(s)"
     if record.get("errors"):
