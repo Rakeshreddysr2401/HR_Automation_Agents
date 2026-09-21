@@ -145,7 +145,7 @@ the work rather than done it.
 
 ### 10. Show what it will send, before it sends it
 
-`GET /api/runs/{id}/plan`, and the **Dry run** tab. For each record: the exact payload
+`GET /api/runs/{id}/plan`, and the **Preview** tab. For each record: the exact payload
 the target will receive, which source file each field came from, which fields two files
 both supplied, and every edit the agent made without asking — each with its reason and
 its disposition. PII values are masked on screen, because a screen in an open-plan
@@ -177,7 +177,7 @@ because that is what catches an export that genuinely differs.
 
 `GET /api/policy` serves the escalation boundary from `app/policy.py` itself — the
 principle, the three tiers, and all 19 thresholds with the reasoning behind each. The
-**Boundary** tab renders it.
+**Rules** tab renders it.
 
 The thresholds are not restated in the frontend. A second copy could drift from the
 real ones, and then the screen explaining the agent's judgment would be the least

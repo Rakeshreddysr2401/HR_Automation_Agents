@@ -62,12 +62,12 @@ for the views that now exist:
    three new questions appear that could not be asked before — which field the
    second email column feeds, a reporting loop, and a manager nobody in the files
    has. Say why they were deferred.
-5. **Dry run tab.** This is the new beat and worth the time: the exact payload per
+5. **Preview tab.** This is the new beat and worth the time: the exact payload per
    record, and the 35 field edits the agent made without asking, each with its
    reason. Then export the recipe.
 6. Push. Two transient failures retry and succeed; one business rejection escalates
    instead of retrying forever.
-7. **Boundary tab** for ten seconds — the thresholds, read live from `policy.py`.
+7. **Rules tab** for ten seconds — the thresholds, read live from `policy.py`.
 8. Finish on the audit trail, filtered to `human`.
 
 Optional closer, if the recording has room: paste the exported recipe into *Start
