@@ -53,6 +53,15 @@ Result: **10 loaded, 1 skipped, 11 questions in all** — everything else the ag
 settled itself, and every one of those decisions is in Preview, Auto decisions and
 the Audit log.
 
+## Where the end result is
+
+- **Records (after send)** → **Download results (Excel / CSV)**: every employee in
+  the target schema's columns, plus `migration_result`, the HRMS id, and which
+  source rows it came from. Real values — this is the deliverable.
+- **View in mock HRMS ↗** on the same tab: the raw JSON the mock target holds.
+- **Audit log → CSV**: the full change history. **Preview → Recipe → Export**: the
+  rules, for next time.
+
 ## Tabs worth opening while it runs
 
 - **Preview** → click Aarav: the final record on the left, the fixes on the right.

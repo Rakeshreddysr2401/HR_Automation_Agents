@@ -28,7 +28,7 @@ from typing import Any
 
 import yaml
 from fastapi import APIRouter, Body, File, HTTPException, Request, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from langgraph.types import Command
 
 from app import llm
@@ -273,6 +273,51 @@ async def rollback_push(run_id: str, payload: dict[str, Any] = Body(...)) -> dic
     if not reason:
         raise HTTPException(400, "a reason is required - it goes into the audit trail")
     return await asyncio.to_thread(loader.rollback, run_id, keys, reason)
+
+
+@router.get("/runs/{run_id}/export")
+async def export_records(run_id: str, format: str = "csv") -> Response:
+    """The migrated dataset as a file: every employee in the target schema's
+    column order, plus what happened to it and where it came from.
+
+    Values are real, not masked - this is the client's own data in the shape
+    their HRMS holds it, and a masked PAN is not a deliverable.
+    """
+    import io
+
+    import pandas as pd
+
+    from app.schema import get_schema
+
+    store = get_store()
+    if not store.get_run(run_id):
+        raise HTTPException(404, "no such run")
+
+    columns = [f.name for f in get_schema().fields]
+    rows = []
+    for record in store.list_records(run_id):
+        fields = record.get("fields") or {}
+        row = {c: fields.get(c, "") for c in columns}
+        row["migration_result"] = record.get("push_status", "")
+        row["target_id"] = record.get("push_detail", "") if record.get("push_status") == "success" else ""
+        row["source_rows"] = "; ".join(record.get("sources") or [])
+        rows.append(row)
+    frame = pd.DataFrame(rows, columns=columns + ["migration_result", "target_id", "source_rows"])
+
+    if format == "xlsx":
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+            frame.to_excel(writer, index=False, sheet_name="employees")
+        return Response(
+            buffer.getvalue(),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="migrated_{run_id}.xlsx"'},
+        )
+    return Response(
+        frame.to_csv(index=False),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="migrated_{run_id}.csv"'},
+    )
 
 
 @router.get("/memory")

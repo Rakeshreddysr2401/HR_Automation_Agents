@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useStore } from "../state/store";
 import { Badge, Button, Empty, Input, Panel, Segmented, Spinner, Stat } from "./ui";
 import type { Tone } from "./ui";
-import { IconRefresh, IconSearch, IconTable, IconUndo } from "./icons";
+import { IconDownload, IconRefresh, IconSearch, IconTable, IconUndo } from "./icons";
 
 const STATUS_TONE: Record<string, Tone> = {
   success: "auto",
@@ -33,7 +33,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export function RecordsPanel() {
-  const { records, retry, rollback, summary } = useStore();
+  const { records, retry, rollback, summary, runId } = useStore();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState("");
   const [status, setStatus] = useState("all");
@@ -104,7 +104,38 @@ export function RecordsPanel() {
 
   return (
     <div className="space-y-3">
-      <Panel icon={<IconTable />} title="Push results — what happened in the HRMS">
+      <Panel
+        icon={<IconTable />}
+        title="Push results — what happened in the HRMS"
+        right={
+          runId && (
+            <div className="flex items-center gap-1.5">
+              <a
+                href={`/api/runs/${runId}/export?format=xlsx`}
+                className="inline-flex items-center gap-1 rounded-[var(--radius-md)] border border-line px-2 py-1 text-[var(--text-xs)] text-ink hover:bg-raised"
+                title="Every employee in the target schema, with the result and source rows. Real values, not masked."
+              >
+                <IconDownload /> Download results (Excel)
+              </a>
+              <a
+                href={`/api/runs/${runId}/export?format=csv`}
+                className="inline-flex items-center gap-1 rounded-[var(--radius-md)] border border-line px-2 py-1 text-[var(--text-xs)] text-ink hover:bg-raised"
+              >
+                <IconDownload /> CSV
+              </a>
+              <a
+                href="/mock-target/v1/employees"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 rounded-[var(--radius-md)] border border-line px-2 py-1 text-[var(--text-xs)] text-muted hover:bg-raised"
+                title="What the mock HRMS actually holds right now (raw JSON)"
+              >
+                View in mock HRMS ↗
+              </a>
+            </div>
+          )
+        }
+      >
         <div className="flex flex-wrap items-center gap-6">
           <Stat label="Employees (after merging)" value={records.length} />
           <Stat label="Loaded into HRMS" value={pushed.length} tone="auto" />
